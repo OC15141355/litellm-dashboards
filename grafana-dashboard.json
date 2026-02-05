@@ -744,7 +744,7 @@
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
           "expr": "litellm_remaining_api_key_budget_metric",
-          "legendFormat": "{{ api_key_alias }}",
+          "legendFormat": "{{ hashed_api_key }}",
           "refId": "A"
         }
       ],
