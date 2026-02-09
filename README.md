@@ -10,6 +10,21 @@ Pre-built Grafana dashboards for monitoring [LiteLLM](https://github.com/BerriAI
 | **Team View** | `grafana-dashboard-team.json` | Team leads | Per-team spend, usage, performance |
 | **Model Comparison** | `grafana-dashboard-models.json` | Developers | Compare models on cost, latency, reliability |
 
+## Admin Scripts
+
+See [`admin-scripts/`](./admin-scripts/) for CLI tools to manage teams, users, and API keys.
+
+```bash
+# List all teams
+./admin-scripts/litellm-admin.sh team list
+
+# Create team with budget
+./admin-scripts/litellm-admin.sh team create "Engineering" 500
+
+# Audit spend across all teams
+./admin-scripts/litellm-admin.sh audit all-teams
+```
+
 ## Screenshots
 
 ### Operations & FinOps
@@ -165,7 +180,7 @@ sum(increase(litellm_spend_metric_total[24h])) by (team)
 ### Team View (`grafana-dashboard-team.json`)
 
 **Variables:**
-- `team` - Dropdown populated from `label_values(litellm_spend_metric_total, team)`
+- `team` - Dropdown populated from `label_values(litellm_spend_metric_total, team_alias)` (shows human-readable team names)
 
 **Sections:**
 | Section | Panels |
