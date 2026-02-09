@@ -72,6 +72,23 @@ api_call() {
     fi
 }
 
+# Resolve team alias to team_id (allows using either)
+resolve_team() {
+    local input=$1
+    # If it looks like a UUID, return as-is
+    if [[ "$input" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+        echo "$input"
+        return
+    fi
+    # Otherwise, look up by alias
+    local team_id=$(api_call GET "/team/list" | jq -r ".[] | select(.team_alias == \"$input\") | .team_id")
+    if [ -z "$team_id" ]; then
+        echo -e "${RED}Error: Team '$input' not found${NC}" >&2
+        return 1
+    fi
+    echo "$team_id"
+}
+
 # ==================== TEAM COMMANDS ====================
 
 team_list() {
@@ -81,12 +98,13 @@ team_list() {
 }
 
 team_info() {
-    local team_id=$1
-    if [ -z "$team_id" ]; then
-        echo -e "${RED}Usage: $0 team info <team_id>${NC}"
+    local input=$1
+    if [ -z "$input" ]; then
+        echo -e "${RED}Usage: $0 team info <team_id|team_alias>${NC}"
         exit 1
     fi
 
+    local team_id=$(resolve_team "$input") || exit 1
     echo -e "${BLUE}Team details for: $team_id${NC}"
     api_call GET "/team/info?team_id=${team_id}" | jq '.'
 }
@@ -120,16 +138,17 @@ team_create() {
 }
 
 team_update() {
-    local team_id=$1
+    local input=$1
     local field=$2
     local value=$3
 
-    if [ -z "$team_id" ] || [ -z "$field" ] || [ -z "$value" ]; then
-        echo -e "${RED}Usage: $0 team update <team_id> <field> <value>${NC}"
+    if [ -z "$input" ] || [ -z "$field" ] || [ -z "$value" ]; then
+        echo -e "${RED}Usage: $0 team update <team_id|team_alias> <field> <value>${NC}"
         echo "Fields: team_alias, max_budget, budget_duration, models"
         exit 1
     fi
 
+    local team_id=$(resolve_team "$input") || exit 1
     local payload="{\"team_id\": \"${team_id}\", \"${field}\": "
 
     # Handle different field types
@@ -151,13 +170,14 @@ team_update() {
 }
 
 team_delete() {
-    local team_id=$1
-    if [ -z "$team_id" ]; then
-        echo -e "${RED}Usage: $0 team delete <team_id>${NC}"
+    local input=$1
+    if [ -z "$input" ]; then
+        echo -e "${RED}Usage: $0 team delete <team_id|team_alias>${NC}"
         exit 1
     fi
 
-    echo -e "${YELLOW}Are you sure you want to delete team $team_id? (y/N)${NC}"
+    local team_id=$(resolve_team "$input") || exit 1
+    echo -e "${YELLOW}Are you sure you want to delete team $input ($team_id)? (y/N)${NC}"
     read -r confirm
     if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
         echo "Aborted."
@@ -169,27 +189,30 @@ team_delete() {
 }
 
 team_members() {
-    local team_id=$1
-    if [ -z "$team_id" ]; then
-        echo -e "${RED}Usage: $0 team members <team_id>${NC}"
+    local input=$1
+    if [ -z "$input" ]; then
+        echo -e "${RED}Usage: $0 team members <team_id|team_alias>${NC}"
         exit 1
     fi
 
-    echo -e "${BLUE}Members of team: $team_id${NC}"
+    local team_id=$(resolve_team "$input") || exit 1
+    echo -e "${BLUE}Members of team: $input${NC}"
     api_call GET "/team/info?team_id=${team_id}" | jq -r '.members_with_roles[]? | "\(.user_id)\t\(.role)"' | column -t -s $'\t'
 }
 
 # ==================== KEY COMMANDS ====================
 
 key_list() {
-    local team_id=$1
+    local input=$1
 
     echo -e "${BLUE}Listing keys...${NC}"
-    if [ -n "$team_id" ]; then
-        api_call GET "/key/list?team_id=${team_id}"
+    # Keys are nested in team objects, so we pull from /team/list
+    if [ -n "$input" ]; then
+        local team_id=$(resolve_team "$input") || exit 1
+        api_call GET "/team/info?team_id=${team_id}" | jq -r '.keys[]? | "\(.token[0:20])...\t\(.key_alias // "N/A")\t\(.team_id // "N/A")\t$\(.max_budget // "unlimited")\t$\(.spend // 0)"' | column -t -s $'\t'
     else
-        api_call GET "/key/list"
-    fi | jq -r '.keys[]? | "\(.token[0:20])...\t\(.key_alias // "N/A")\t\(.team_id // "N/A")\t$\(.max_budget // "unlimited")\t\(.spend // 0)"' | column -t -s $'\t'
+        api_call GET "/team/list" | jq -r '.[] | .team_alias as $team | .keys[]? | "\(.token[0:20])...\t\(.key_alias // "N/A")\t\($team // "N/A")\t$\(.max_budget // "unlimited")\t$\(.spend // 0)"' | column -t -s $'\t'
+    fi
 }
 
 key_info() {
@@ -204,16 +227,17 @@ key_info() {
 }
 
 key_create() {
-    local team_id=$1
+    local input=$1
     local key_alias=$2
     local max_budget=$3
     local models=$4
 
-    if [ -z "$team_id" ]; then
-        echo -e "${RED}Usage: $0 key create <team_id> [key_alias] [max_budget] [models]${NC}"
+    if [ -z "$input" ]; then
+        echo -e "${RED}Usage: $0 key create <team_id|team_alias> [key_alias] [max_budget] [models]${NC}"
         exit 1
     fi
 
+    local team_id=$(resolve_team "$input") || exit 1
     local payload="{\"team_id\": \"${team_id}\""
 
     if [ -n "$key_alias" ]; then
@@ -293,14 +317,15 @@ key_delete() {
 
 key_move() {
     local key=$1
-    local new_team_id=$2
+    local input=$2
 
-    if [ -z "$key" ] || [ -z "$new_team_id" ]; then
-        echo -e "${RED}Usage: $0 key move <key> <new_team_id>${NC}"
+    if [ -z "$key" ] || [ -z "$input" ]; then
+        echo -e "${RED}Usage: $0 key move <key> <new_team_id|new_team_alias>${NC}"
         exit 1
     fi
 
-    echo -e "${BLUE}Moving key to team: $new_team_id${NC}"
+    local new_team_id=$(resolve_team "$input") || exit 1
+    echo -e "${BLUE}Moving key to team: $input ($new_team_id)${NC}"
     api_call POST "/key/update" "{\"key\": \"${key}\", \"team_id\": \"${new_team_id}\"}" | jq '.'
 }
 
@@ -308,7 +333,7 @@ key_move() {
 
 user_list() {
     echo -e "${BLUE}Listing users...${NC}"
-    api_call GET "/user/list" | jq -r '.[] | "\(.user_id)\t\(.user_email // "N/A")\t\(.teams // [] | join(","))"' | column -t -s $'\t'
+    api_call GET "/user/list" | jq -r '.users[]? | "\(.user_id)\t\(.user_email // "N/A")\t\(.teams // [] | join(","))"' | column -t -s $'\t'
 }
 
 user_info() {
@@ -345,29 +370,31 @@ user_create() {
 
 user_add_to_team() {
     local user_id=$1
-    local team_id=$2
+    local input=$2
     local role=${3:-"user"}
 
-    if [ -z "$user_id" ] || [ -z "$team_id" ]; then
-        echo -e "${RED}Usage: $0 user add-to-team <user_id> <team_id> [role]${NC}"
+    if [ -z "$user_id" ] || [ -z "$input" ]; then
+        echo -e "${RED}Usage: $0 user add-to-team <user_id> <team_id|team_alias> [role]${NC}"
         echo "Roles: user, admin"
         exit 1
     fi
 
-    echo -e "${BLUE}Adding user $user_id to team $team_id as $role${NC}"
+    local team_id=$(resolve_team "$input") || exit 1
+    echo -e "${BLUE}Adding user $user_id to team $input as $role${NC}"
     api_call POST "/team/member_add" "{\"team_id\": \"${team_id}\", \"member\": {\"user_id\": \"${user_id}\", \"role\": \"${role}\"}}" | jq '.'
 }
 
 user_remove_from_team() {
     local user_id=$1
-    local team_id=$2
+    local input=$2
 
-    if [ -z "$user_id" ] || [ -z "$team_id" ]; then
-        echo -e "${RED}Usage: $0 user remove-from-team <user_id> <team_id>${NC}"
+    if [ -z "$user_id" ] || [ -z "$input" ]; then
+        echo -e "${RED}Usage: $0 user remove-from-team <user_id> <team_id|team_alias>${NC}"
         exit 1
     fi
 
-    echo -e "${BLUE}Removing user $user_id from team $team_id${NC}"
+    local team_id=$(resolve_team "$input") || exit 1
+    echo -e "${BLUE}Removing user $user_id from team $input${NC}"
     api_call POST "/team/member_delete" "{\"team_id\": \"${team_id}\", \"user_id\": \"${user_id}\"}" | jq '.'
 }
 
@@ -391,15 +418,16 @@ audit_spend() {
 }
 
 audit_team_spend() {
-    local team_id=$1
+    local input=$1
 
-    if [ -z "$team_id" ]; then
-        echo -e "${RED}Usage: $0 audit team-spend <team_id>${NC}"
+    if [ -z "$input" ]; then
+        echo -e "${RED}Usage: $0 audit team-spend <team_id|team_alias>${NC}"
         exit 1
     fi
 
-    echo -e "${BLUE}Spend for team: $team_id${NC}"
-    api_call GET "/team/info?team_id=${team_id}" | jq '{team_alias: .team_alias, spend: .spend, max_budget: .max_budget, budget_remaining: (.max_budget - .spend)}'
+    local team_id=$(resolve_team "$input") || exit 1
+    echo -e "${BLUE}Spend for team: $input${NC}"
+    api_call GET "/team/info?team_id=${team_id}" | jq '.team_info | {team_alias: .team_alias, spend: (.spend // 0), max_budget: (.max_budget // "unlimited"), budget_remaining: (if .max_budget then (.max_budget - (.spend // 0)) else "unlimited" end)}'
 }
 
 audit_all_teams() {
@@ -411,6 +439,24 @@ audit_all_teams() {
 audit_models() {
     echo -e "${BLUE}Model usage summary${NC}"
     api_call GET "/model/info" | jq '.'
+}
+
+audit_full() {
+    echo -e "${BLUE}Full Audit Report${NC}"
+    echo "================="
+    echo ""
+
+    api_call GET "/team/list" | jq -r '
+        .[] |
+        "Team: \(.team_alias // .team_id) [$\(.spend // 0)/\(.max_budget // "unlimited")]",
+        "  Budget Duration: \(.budget_duration // "none")",
+        "  Models: \(.models // [] | join(", "))",
+        "  Members:",
+        (.members_with_roles // [] | if length == 0 then "    (no members)" else .[] | "    - \(.user_id // "unknown") (\(.role // "user"))" end),
+        "  Keys:",
+        (.keys // [] | if length == 0 then "    (no keys)" else .[] | "    - \(.key_alias // .key_name // "unnamed") | $\(.spend // 0) spent | limit: $\(.max_budget // "unlimited")" end),
+        ""
+    '
 }
 
 # ==================== HEALTH & INFO ====================
@@ -433,30 +479,33 @@ LiteLLM Admin CLI
 
 Usage: $0 <command> <subcommand> [options]
 
+Note: Team commands accept either team_id (UUID) or team_alias (name).
+
 Commands:
   team list                           List all teams
-  team info <team_id>                 Show team details
+  team info <team>                    Show team details
   team create <alias> [budget] [models]   Create a new team
-  team update <team_id> <field> <value>   Update team field
-  team delete <team_id>               Delete a team
-  team members <team_id>              List team members
+  team update <team> <field> <value>  Update team field
+  team delete <team>                  Delete a team
+  team members <team>                 List team members
 
-  key list [team_id]                  List keys (optionally filter by team)
+  key list [team]                     List keys (optionally filter by team)
   key info <key>                      Show key details
-  key create <team_id> [alias] [budget] [models]   Create a key
+  key create <team> [alias] [budget] [models]   Create a key
   key update <key> <field> <value>    Update key field
   key delete <key>                    Delete a key
-  key move <key> <new_team_id>        Move key to different team
+  key move <key> <new_team>           Move key to different team
 
   user list                           List all users
   user info <user_id>                 Show user details
-  user create <email> [team_id]       Create a user
-  user add-to-team <user_id> <team_id> [role]   Add user to team
-  user remove-from-team <user_id> <team_id>     Remove user from team
+  user create <email> [team]          Create a user
+  user add-to-team <user_id> <team> [role]   Add user to team
+  user remove-from-team <user_id> <team>     Remove user from team
 
   audit spend [start_date] [end_date]   Spend report for date range
-  audit team-spend <team_id>            Spend report for a team
+  audit team-spend <team>               Spend report for a team
   audit all-teams                       Spend summary for all teams
+  audit full                            Full audit (teams, members, keys)
   audit models                          Model usage summary
 
   health                              Check LiteLLM health
@@ -465,11 +514,15 @@ Commands:
 Environment Variables:
   LITELLM_API_BASE     Base URL of LiteLLM instance
   LITELLM_MASTER_KEY   Master API key for admin operations
+  LITELLM_INSECURE     Set to 1 to skip SSL verification
 
 Examples:
   $0 team create "Engineering" 500 "gpt-4,claude-3-sonnet"
-  $0 key create team_abc123 "dev-key" 100
-  $0 key move sk-xxx team_xyz456
+  $0 team info Engineering              # by alias
+  $0 key create Engineering "dev-key" 100
+  $0 key list Engineering
+  $0 audit team-spend Engineering
+  $0 audit full
   $0 audit all-teams
 EOF
 }
@@ -520,6 +573,7 @@ main() {
                 spend) audit_spend "$@" ;;
                 team-spend) audit_team_spend "$@" ;;
                 all-teams) audit_all_teams ;;
+                full) audit_full ;;
                 models) audit_models ;;
                 *) show_help; exit 1 ;;
             esac
