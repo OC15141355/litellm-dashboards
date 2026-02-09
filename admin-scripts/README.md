@@ -9,6 +9,9 @@ Admin toolkit for managing LiteLLM deployments - teams, users, API keys, and aud
 ```bash
 export LITELLM_API_BASE="https://your-litellm-instance.com"
 export LITELLM_MASTER_KEY="sk-your-master-key"
+
+# Optional: Skip SSL verification for self-signed certificates
+export LITELLM_INSECURE=1
 ```
 
 ### Dependencies

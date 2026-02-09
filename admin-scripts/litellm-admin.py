@@ -19,23 +19,28 @@ except ImportError:
 
 
 class LiteLLMAdmin:
-    def __init__(self, base_url: str, master_key: str):
+    def __init__(self, base_url: str, master_key: str, verify_ssl: bool = True):
         self.base_url = base_url.rstrip("/")
         self.master_key = master_key
+        self.verify_ssl = verify_ssl
         self.headers = {
             "Authorization": f"Bearer {master_key}",
             "Content-Type": "application/json",
         }
+        # Suppress SSL warnings when verify is disabled
+        if not verify_ssl:
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def _get(self, endpoint: str, params: dict = None) -> dict:
         url = f"{self.base_url}{endpoint}"
-        resp = requests.get(url, headers=self.headers, params=params)
+        resp = requests.get(url, headers=self.headers, params=params, verify=self.verify_ssl)
         resp.raise_for_status()
         return resp.json()
 
     def _post(self, endpoint: str, data: dict = None) -> dict:
         url = f"{self.base_url}{endpoint}"
-        resp = requests.post(url, headers=self.headers, json=data or {})
+        resp = requests.post(url, headers=self.headers, json=data or {}, verify=self.verify_ssl)
         resp.raise_for_status()
         return resp.json()
 
@@ -216,6 +221,13 @@ def main():
         default="table",
         help="Output format",
     )
+    parser.add_argument(
+        "-k",
+        "--insecure",
+        action="store_true",
+        default=os.environ.get("LITELLM_INSECURE") == "1",
+        help="Skip SSL verification (for self-signed certs). Or set LITELLM_INSECURE=1",
+    )
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
@@ -325,7 +337,7 @@ def main():
         print("Set them as environment variables or use --base-url and --master-key")
         sys.exit(1)
 
-    admin = LiteLLMAdmin(args.base_url, args.master_key)
+    admin = LiteLLMAdmin(args.base_url, args.master_key, verify_ssl=not args.insecure)
 
     try:
         result = None

@@ -46,20 +46,27 @@ load_config() {
 }
 
 # API helper
+# Set LITELLM_INSECURE=1 to skip SSL verification
 api_call() {
     local method=$1
     local endpoint=$2
     local data=$3
 
     local url="${LITELLM_API_BASE}${endpoint}"
+    local curl_opts="-s"
+
+    # Skip SSL verification if requested (for self-signed certs)
+    if [ "${LITELLM_INSECURE:-0}" = "1" ]; then
+        curl_opts="$curl_opts -k"
+    fi
 
     if [ -n "$data" ]; then
-        curl -s -X "$method" "$url" \
+        curl $curl_opts -X "$method" "$url" \
             -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
             -H "Content-Type: application/json" \
             -d "$data"
     else
-        curl -s -X "$method" "$url" \
+        curl $curl_opts -X "$method" "$url" \
             -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
             -H "Content-Type: application/json"
     fi
