@@ -362,10 +362,145 @@ Stored in AWS Secrets Manager (`litellm-dev`). Access controlled via IAM policie
 
 ---
 
+## S3 Logging
+
+### Overview
+
+LiteLLM can log all LLM API call data to an S3 bucket for audit, compliance, and cost analysis. Every request/response is captured as a JSON object with full metadata including cost, tokens, model, team, and timing.
+
+### Why S3 Logging?
+
+- **Audit trail**: Complete record of all LLM interactions for compliance
+- **Cost forensics**: Drill into spend beyond what Prometheus metrics provide
+- **Team attribution**: Logs organised by team and key alias in S3 path structure
+- **Long-term retention**: S3 lifecycle policies for archival (vs Prometheus retention limits)
+- **Integration**: Feed into Athena, QuickSight, or any S3-compatible analytics tool
+
+### Configuration
+
+Add `s3_v2` to the success callback in the LiteLLM config:
+
+```yaml
+litellm_settings:
+  success_callback: ["s3_v2", "prometheus"]    # can run alongside prometheus
+  s3_callback_params:
+    s3_bucket_name: litellm-logs-dev
+    s3_region_name: ap-southeast-2
+    s3_aws_access_key_id: os.environ/AWS_ACCESS_KEY_ID
+    s3_aws_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
+    s3_path: logs                              # base prefix in bucket
+    s3_use_team_prefix: true                   # organise by team alias
+    s3_use_key_prefix: true                    # organise by key alias
+```
+
+### S3 Path Structure
+
+With both team and key prefixes enabled, logs are organised as:
+
+```
+s3://litellm-logs-dev/
+  logs/
+    Engineering/
+      dev-key-alice/
+        2025-02-11T10:30:00Z.json
+        2025-02-11T10:31:15Z.json
+      dev-key-bob/
+        ...
+    Data-Science/
+      ds-key-01/
+        ...
+```
+
+This makes it easy to query spend per team or per developer using S3 Select or Athena.
+
+### Configuration Options
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `s3_bucket_name` | Yes | Target S3 bucket |
+| `s3_region_name` | Yes | AWS region of the bucket |
+| `s3_aws_access_key_id` | Yes | AWS credentials (or use `os.environ/VAR`) |
+| `s3_aws_secret_access_key` | Yes | AWS credentials (or use `os.environ/VAR`) |
+| `s3_path` | No | Base prefix for all log objects |
+| `s3_use_team_prefix` | No | Prefix objects with team alias (`false` by default) |
+| `s3_use_key_prefix` | No | Prefix objects with key alias (`false` by default) |
+| `s3_endpoint_url` | No | Custom S3 endpoint (for S3-compatible stores) |
+| `s3_strip_base64_files` | No | Strip base64 data from logs to reduce size |
+
+### Logging Payload
+
+Each log entry is a StandardLoggingPayload JSON object containing:
+
+| Field | Description |
+|-------|-------------|
+| `id` | Unique request identifier |
+| `status` | `success` or `failure` |
+| `response_cost` | Cost in USD |
+| `prompt_tokens` / `completion_tokens` | Token counts |
+| `model` | Model name from request |
+| `startTime` / `endTime` | Request timestamps |
+| `response_time` | Total duration |
+| `messages` | Input messages |
+| `response` | LLM response |
+| `metadata` | Team, user, key, IP, headers |
+| `error_str` | Error details (if failed) |
+| `cache_hit` | Whether cache was used |
+| `request_tags` | Request categorisation tags |
+
+### IAM Policy Required
+
+The LiteLLM pod needs write access to the logging bucket:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::litellm-logs-dev",
+                "arn:aws:s3:::litellm-logs-dev/*"
+            ]
+        }
+    ]
+}
+```
+
+### Deployment Considerations
+
+| Consideration | Recommendation |
+|---------------|----------------|
+| **Credentials** | Use IRSA (IAM Roles for Service Accounts) if on EKS, or add AWS creds to K8s secret |
+| **Bucket lifecycle** | Set S3 lifecycle policy (e.g., transition to Glacier after 90 days) |
+| **Encryption** | Enable SSE-S3 or SSE-KMS on the bucket |
+| **Cost** | S3 PUT costs are minimal (~$0.005/1000 requests) |
+| **Failure handling** | S3 logging failures do not block LLM requests - they fail silently |
+| **Existing callbacks** | `s3_v2` can run alongside `prometheus` - just list both in `success_callback` |
+
+### Integration with Existing Setup
+
+Since we already use AWS Secrets Manager for the master key and database URL, S3 credentials can follow the same pattern:
+
+1. Add `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to the `litellm-dev` secret in AWS Secrets Manager
+2. Update `pre-install.sh` to pull the S3 credentials
+3. Pass them as environment variables to the LiteLLM pod
+4. Reference via `os.environ/AWS_ACCESS_KEY_ID` in the config
+
+Alternatively, if running on EKS with IRSA, no credentials are needed - the service account inherits the IAM role.
+
+---
+
 ## Next Steps
 
 - [ ] Confirm enterprise license availability with parent company
 - [ ] If enterprise available: configure SCIM or JWT Auth for Keycloak group → team mapping
 - [ ] If no enterprise: continue with manual team management via CLI
+- [ ] Configure S3 logging bucket and IAM policy
+- [ ] Add S3 callback to LiteLLM config (`s3_v2` with team/key prefixes)
 - [ ] Senior dev review of deployment PR (secrets flow, ESO)
 - [ ] Production deployment after review
