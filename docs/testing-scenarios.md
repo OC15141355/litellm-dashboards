@@ -55,13 +55,13 @@ export LITELLM_MASTER_KEY="sk-..."
 
 ```bash
 # CREATE team with budget and model access
-./litellm-admin.sh team create "Test-Engineering" 500 "claude-3-sonnet,claude-3-haiku"
+./admin-cli.sh team create "Test-Engineering" 500 "claude-3-sonnet,claude-3-haiku"
 
 # READ - list all teams
-./litellm-admin.sh team list
+./admin-cli.sh team list
 
 # READ - team details
-./litellm-admin.sh team info Test-Engineering
+./admin-cli.sh team info Test-Engineering
 
 # UPDATE - change budget (via API)
 curl -X POST "${LITELLM_API_BASE}/team/update" \
@@ -82,10 +82,10 @@ curl -X POST "${LITELLM_API_BASE}/team/delete" \
 
 ```bash
 # CREATE key for team
-./litellm-admin.sh key create Test-Engineering "admin-test-key" 100
+./admin-cli.sh key create Test-Engineering "admin-test-key" 100
 
 # READ - list keys for team
-./litellm-admin.sh key list Test-Engineering
+./admin-cli.sh key list Test-Engineering
 
 # UPDATE - change key budget (via API)
 curl -X POST "${LITELLM_API_BASE}/key/update" \
@@ -125,7 +125,7 @@ curl -X POST "${LITELLM_API_BASE}/user/new" \
   }'
 
 # READ - list all users
-./litellm-admin.sh user list
+./admin-cli.sh user list
 
 # DELETE user
 curl -X POST "${LITELLM_API_BASE}/user/delete" \
@@ -151,26 +151,26 @@ curl -X POST "${LITELLM_API_BASE}/user/delete" \
 
 ```bash
 # Create team with monthly budget
-./litellm-admin.sh team create "Budget-Test" 10 "claude-3-sonnet"
+./admin-cli.sh team create "Budget-Test" 10 "claude-3-sonnet"
 
 # Create key with individual budget
-./litellm-admin.sh key create Budget-Test "budget-test-key" 5
+./admin-cli.sh key create Budget-Test "budget-test-key" 5
 
 # Verify budget
-./litellm-admin.sh audit team-spend Budget-Test
+./admin-cli.sh audit team-spend Budget-Test
 ```
 
 ### 1.6 Monitoring & Logging
 
 ```bash
 # Audit all teams
-./litellm-admin.sh audit all-teams
+./admin-cli.sh audit all-teams
 
 # Audit specific team
-./litellm-admin.sh audit team-spend Test-Engineering
+./admin-cli.sh audit team-spend Test-Engineering
 
 # Full audit
-./litellm-admin.sh audit full
+./admin-cli.sh audit full
 ```
 
 **Also verify**:
@@ -188,7 +188,7 @@ Admin creates team lead account:
 
 ```bash
 # Admin creates team
-./litellm-admin.sh team create "Lead-Test-Team" 500 "claude-3-sonnet,claude-3-haiku"
+./admin-cli.sh team create "Lead-Test-Team" 500 "claude-3-sonnet,claude-3-haiku"
 
 # Admin creates internal_user for team lead
 curl -X POST "${LITELLM_API_BASE}/user/new" \

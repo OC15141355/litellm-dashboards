@@ -63,8 +63,8 @@ LiteLLM is an open-source LLM proxy that provides a unified OpenAI-compatible AP
 │   ├── grafana-dashboard.json
 │   ├── grafana-dashboard-team.json
 │   └── grafana-dashboard-models.json
-└── scripts/
-    └── litellm-admin.sh       # Admin CLI tool
+└── admin-scripts/
+    └── admin-cli.sh            # Admin CLI tool
 ```
 
 ### Secrets Management
@@ -114,23 +114,23 @@ export LITELLM_API_BASE="https://litellm.example.com"
 export LITELLM_MASTER_KEY="sk-..."
 
 # Team management
-./litellm-admin.sh team list
-./litellm-admin.sh team create "Engineering" 500 "claude-3-sonnet,gpt-4"
-./litellm-admin.sh team info Engineering        # supports alias or UUID
+./admin-cli.sh team list
+./admin-cli.sh team create "Engineering" 500 "claude-3-sonnet,gpt-4"
+./admin-cli.sh team info Engineering        # supports alias or UUID
 
 # Key management
-./litellm-admin.sh key create Engineering "dev-key" 100
-./litellm-admin.sh key list Engineering
-./litellm-admin.sh key move <key> NewTeam
+./admin-cli.sh key create Engineering "dev-key" 100
+./admin-cli.sh key list Engineering
+./admin-cli.sh key move <key> NewTeam
 
 # User management
-./litellm-admin.sh user list
-./litellm-admin.sh user add-to-team <user_id> Engineering admin
+./admin-cli.sh user list
+./admin-cli.sh user add-to-team <user_id> Engineering admin
 
 # Audit
-./litellm-admin.sh audit all-teams
-./litellm-admin.sh audit team-spend Engineering
-./litellm-admin.sh audit full
+./admin-cli.sh audit all-teams
+./admin-cli.sh audit team-spend Engineering
+./admin-cli.sh audit full
 ```
 
 ### Workflow: Onboarding a New Team

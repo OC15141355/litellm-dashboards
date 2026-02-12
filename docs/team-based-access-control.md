@@ -65,7 +65,7 @@ Teams are created with a list of allowed models. Keys inherit the team's model a
 
 ```bash
 # Team can only use Claude Sonnet and Haiku - not Opus
-./litellm-admin.sh team create "Platform-Engineering" 500 "claude-3-sonnet,claude-3-haiku"
+./admin-cli.sh team create "Platform-Engineering" 500 "claude-3-sonnet,claude-3-haiku"
 ```
 
 Any request through a team key for a model not in the allowed list is rejected.
@@ -77,7 +77,7 @@ Any request through a team key for a model not in the allowed list is rejected.
 ### Step 1: Create the Pilot Team
 
 ```bash
-./litellm-admin.sh team create "Pilot-Team" 200 "claude-3-sonnet,claude-3-haiku"
+./admin-cli.sh team create "Pilot-Team" 200 "claude-3-sonnet,claude-3-haiku"
 ```
 
 - Budget: $200/month (adjustable)
@@ -87,9 +87,9 @@ Any request through a team key for a model not in the allowed list is rejected.
 ### Step 2: Generate Keys for Pilot Members
 
 ```bash
-./litellm-admin.sh key create Pilot-Team "pilot-alice" 50
-./litellm-admin.sh key create Pilot-Team "pilot-bob" 50
-./litellm-admin.sh key create Pilot-Team "pilot-charlie" 50
+./admin-cli.sh key create Pilot-Team "pilot-alice" 50
+./admin-cli.sh key create Pilot-Team "pilot-bob" 50
+./admin-cli.sh key create Pilot-Team "pilot-charlie" 50
 ```
 
 Each developer gets a personal key with a $50 individual cap within the $200 team budget.
@@ -108,14 +108,14 @@ That's it. All requests route through LiteLLM, attributed to the Pilot-Team.
 ### Step 4: Monitor
 
 - **Grafana Team Dashboard**: Shows real-time spend per team and per key
-- **CLI audit**: `./litellm-admin.sh audit team-spend Pilot-Team`
+- **CLI audit**: `./admin-cli.sh audit team-spend Pilot-Team`
 - **Prometheus alert**: Set alert on `litellm_remaining_team_budget_metric` when budget is low
 
 ### Step 5: Offboarding / Key Rotation
 
 ```bash
 # Revoke a specific key
-./litellm-admin.sh key delete <key-hash>
+./admin-cli.sh key delete <key-hash>
 
 # Rotate a key (if compromised)
 # Generate new key, distribute to developer, delete old key
@@ -212,17 +212,17 @@ Start with **virtual keys per person** for the pilot. This requires no enterpris
 
 ```bash
 # Create team with $500 budget, monthly reset, Claude Sonnet + Haiku access
-./litellm-admin.sh team create "Engineering" 500 "claude-3-sonnet,claude-3-haiku"
+./admin-cli.sh team create "Engineering" 500 "claude-3-sonnet,claude-3-haiku"
 
 # Create key for developer (team budget: $500, individual cap: $100)
-./litellm-admin.sh key create Engineering "eng-alice" 100
+./admin-cli.sh key create Engineering "eng-alice" 100
 
 # Check team spend
-./litellm-admin.sh audit team-spend Engineering
+./admin-cli.sh audit team-spend Engineering
 
 # List all keys for a team
-./litellm-admin.sh key list Engineering
+./admin-cli.sh key list Engineering
 
 # Full audit across all teams
-./litellm-admin.sh audit all-teams
+./admin-cli.sh audit all-teams
 ```
