@@ -45,6 +45,31 @@ Platform Team (Admin)
 # Set admin credentials
 export LITELLM_API_BASE="https://litellm.example.com"
 export LITELLM_MASTER_KEY="sk-..."
+
+# Optional: skip SSL verification for self-signed certs
+export LITELLM_INSECURE=1
+```
+
+### Admin CLI Quick Reference
+
+```
+TEAMS                                       KEYS
+  team list                                   key list [team]
+  team info <team>                            key info <key>
+  team create <alias> [budget] [models]       key create <team> [alias] [budget] [models]
+  team update <team> <field> <value>          key update <key> <field> <value>
+  team delete <team>                          key delete <key>
+  team members <team>                         key move <key> <new_team>
+
+USERS                                       AUDIT
+  user list                                   audit spend [start] [end]
+  user info <user_id>                         audit team-spend <team>
+  user create <email> [team]                  audit all-teams
+  user add-to-team <user_id> <team> [role]    audit full
+  user remove-from-team <user_id> <team>      audit models
+
+SYSTEM
+  health                                    models
 ```
 
 ---
@@ -63,17 +88,20 @@ export LITELLM_MASTER_KEY="sk-..."
 # READ - team details
 ./admin-cli.sh team info Test-Engineering
 
-# UPDATE - change budget (via API)
-curl -X POST "${LITELLM_API_BASE}/team/update" \
-  -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"team_id": "<team-uuid>", "max_budget": 1000}'
+# READ - team members
+./admin-cli.sh team members Test-Engineering
 
-# DELETE team
-curl -X POST "${LITELLM_API_BASE}/team/delete" \
-  -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"team_ids": ["<team-uuid>"]}'
+# UPDATE - change budget
+./admin-cli.sh team update Test-Engineering max_budget 1000
+
+# UPDATE - change models
+./admin-cli.sh team update Test-Engineering models "claude-3-sonnet,claude-3-haiku,gpt-4"
+
+# UPDATE - set budget duration
+./admin-cli.sh team update Test-Engineering budget_duration "30d"
+
+# DELETE team (prompts for confirmation)
+./admin-cli.sh team delete Test-Engineering
 ```
 
 **Expected**: All operations succeed with master key.
@@ -87,17 +115,20 @@ curl -X POST "${LITELLM_API_BASE}/team/delete" \
 # READ - list keys for team
 ./admin-cli.sh key list Test-Engineering
 
-# UPDATE - change key budget (via API)
-curl -X POST "${LITELLM_API_BASE}/key/update" \
-  -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"key": "sk-...", "max_budget": 200}'
+# READ - key details
+./admin-cli.sh key info sk-...
 
-# DELETE key
-curl -X POST "${LITELLM_API_BASE}/key/delete" \
-  -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"keys": ["sk-..."]}'
+# UPDATE - change key budget
+./admin-cli.sh key update sk-... max_budget 200
+
+# UPDATE - change key alias
+./admin-cli.sh key update sk-... key_alias "new-alias"
+
+# MOVE key to different team
+./admin-cli.sh key move sk-... Other-Team
+
+# DELETE key (prompts for confirmation)
+./admin-cli.sh key delete sk-...
 ```
 
 **Expected**: All operations succeed with master key.
@@ -105,33 +136,36 @@ curl -X POST "${LITELLM_API_BASE}/key/delete" \
 ### 1.3 CRUD Users
 
 ```bash
-# CREATE internal_user (team lead)
+# CREATE user (and optionally assign to team)
+./admin-cli.sh user create teamlead@example.com <team-uuid>
+
+# READ - list all users
+./admin-cli.sh user list
+
+# READ - user details
+./admin-cli.sh user info <user-id>
+
+# ADD user to team (with role: user or admin)
+./admin-cli.sh user add-to-team <user-id> Test-Engineering admin
+
+# REMOVE user from team
+./admin-cli.sh user remove-from-team <user-id> Test-Engineering
+```
+
+**Note**: The CLI `user create` does not set `user_role`. To create an `internal_user` or `proxy_admin`, use the LiteLLM Admin UI or the API directly:
+
+```bash
+# CREATE internal_user (team lead) - requires API call
 curl -X POST "${LITELLM_API_BASE}/user/new" \
   -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
   -H "Content-Type: application/json" \
-  -d '{
-    "user_email": "teamlead@example.com",
-    "user_role": "internal_user",
-    "team_id": "<team-uuid>"
-  }'
+  -d '{"user_email": "teamlead@example.com", "user_role": "internal_user", "team_id": "<team-uuid>"}'
 
 # CREATE admin user (expect: may fail if over 5 SSO users)
 curl -X POST "${LITELLM_API_BASE}/user/new" \
   -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
   -H "Content-Type: application/json" \
-  -d '{
-    "user_email": "admin2@example.com",
-    "user_role": "proxy_admin"
-  }'
-
-# READ - list all users
-./admin-cli.sh user list
-
-# DELETE user
-curl -X POST "${LITELLM_API_BASE}/user/delete" \
-  -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"user_ids": ["<user-id>"]}'
+  -d '{"user_email": "admin2@example.com", "user_role": "proxy_admin"}'
 ```
 
 **Expected**:
@@ -190,15 +224,14 @@ Admin creates team lead account:
 # Admin creates team
 ./admin-cli.sh team create "Lead-Test-Team" 500 "claude-3-sonnet,claude-3-haiku"
 
-# Admin creates internal_user for team lead
+# Admin creates internal_user for team lead (via UI or API)
 curl -X POST "${LITELLM_API_BASE}/user/new" \
   -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
   -H "Content-Type: application/json" \
-  -d '{
-    "user_email": "teamlead@example.com",
-    "user_role": "internal_user",
-    "team_id": "<team-uuid>"
-  }'
+  -d '{"user_email": "teamlead@example.com", "user_role": "internal_user", "team_id": "<team-uuid>"}'
+
+# Add team lead to team (if not done in creation step)
+./admin-cli.sh user add-to-team <user-id> Lead-Test-Team admin
 ```
 
 Team lead receives password reset link and logs into UI.
@@ -328,12 +361,12 @@ Team lead deletes the key in UI. Developer tries same key.
 
 ### Key & Team Lifecycle
 
-| Test | Expected |
-|------|----------|
-| Delete team with active keys | Keys should be invalidated |
-| Move key to different team | Spend attribution changes to new team |
-| Two users hitting team budget simultaneously | Both may get through if spend hasn't been recorded yet |
-| Pod restart during active request | Client gets error, no spend recorded for incomplete request |
+| Test | Command | Expected |
+|------|---------|----------|
+| Delete team with active keys | `./admin-cli.sh team delete Test-Team` | Keys should be invalidated |
+| Move key to different team | `./admin-cli.sh key move sk-... New-Team` | Spend attribution changes to new team |
+| Two users hitting team budget simultaneously | (concurrent curl requests) | Both may get through if spend hasn't been recorded yet |
+| Pod restart during active request | (restart pod during streaming response) | Client gets error, no spend recorded for incomplete request |
 
 ### Model Access
 
