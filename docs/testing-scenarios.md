@@ -344,6 +344,96 @@ Team lead deletes the key in UI. Developer tries same key.
 
 ---
 
+## Security Findings
+
+### Authentication & Password Management
+
+LiteLLM uses an invitation/onboarding link system for internal users rather than traditional password reset. Access is via `/fallback/login` with email + password (SSO not required).
+
+**Login methods:**
+
+| Role | Login Path | Credentials |
+|------|-----------|-------------|
+| Admin | `/fallback/login` | Master key |
+| Internal user (team lead) | `/fallback/login` | Email + password (set via onboarding link) |
+| End user (developer) | No UI login | Virtual key for API only |
+
+### Finding: Invitation Links Are Reusable
+
+**Severity**: Medium
+**Status**: Known limitation of LiteLLM built-in user management
+
+**Observed behaviour:**
+- Admin generates invitation link: `ui?invitation_id=<id>&action=reset_password`
+- User sets their password via the link
+- The same link can be used again to reset the password a second time
+- Generating a new reset link creates a new invitation ID, but **previous invitation IDs remain active**
+- Multiple valid reset links can coexist for the same user simultaneously
+- Both old and new links display the user's email as username
+
+**Risk:**
+- If any historical invitation link is intercepted (email forwarding, Slack history, shared screen, browser history), an attacker can reset the user's password at any time
+- No mechanism exists to invalidate previous invitation links
+- No documented expiry enforcement (docs state 7 days, but not verified)
+
+**Impact for pilot**: Low - small trusted group, controlled distribution of links.
+**Impact at scale**: Not acceptable - credential lifecycle is unmanaged.
+
+### Finding: No Password Reset for Existing Users
+
+**Observed behaviour:**
+- There is no self-service "forgot password" flow
+- Admin must generate a new invitation link for password resets
+- This creates additional active invitation links (see above)
+
+### Finding: No MFA on Fallback Login
+
+**Observed behaviour:**
+- Email + password login has no MFA option
+- No account lockout after failed attempts (not verified - test recommended)
+- No password complexity requirements enforced (not verified - test recommended)
+
+### Mitigations (Current)
+
+| Mitigation | Description |
+|------------|-------------|
+| Controlled distribution | Generate invitation links only when needed, send directly to the person |
+| Immediate use | Have users set their password immediately upon receiving the link |
+| Monitor access | Review LiteLLM logs for unexpected login activity |
+| Limit exposure | Do not share links via persistent channels (Slack, email threads) |
+| Accept risk for pilot | Small trusted group, low likelihood of link interception |
+
+### Long-Term Recommendation
+
+Keycloak SSO handles all credential lifecycle properly:
+- Single-use password reset links with configurable expiry
+- MFA enforcement
+- Account lockout policies
+- Password complexity rules
+- Centralised credential revocation
+- Full audit trail
+
+This is a strong argument for enterprise license if scaling beyond pilot, as LiteLLM's built-in user management is not designed for enterprise-grade credential security.
+
+---
+
+## Security Test Scenarios
+
+| Test ID | Test | Expected | Actual | Pass/Fail |
+|---------|------|----------|--------|-----------|
+| S-1.1 | Use invitation link to set password | Succeeds | | |
+| S-1.2 | Reuse same invitation link | Should fail (actually succeeds - known issue) | | |
+| S-1.3 | Generate new reset, try old link | Should fail (actually succeeds - known issue) | | |
+| S-1.4 | Try invitation link after 7 days | Should fail (expiry) - verify | | |
+| S-1.5 | Try invitation link from different browser/device | Verify if session-bound | | |
+| S-2.1 | Login with correct email/password at /fallback/login | Succeeds | | |
+| S-2.2 | Login with wrong password (5+ attempts) | Check for lockout | | |
+| S-2.3 | Set weak password (e.g. "123") | Check for complexity enforcement | | |
+| S-2.4 | Internal user accesses /fallback/login | Succeeds with email/password | | |
+| S-2.5 | Admin accesses /fallback/login | Succeeds with master key | | |
+
+---
+
 ## Test Results Template
 
 | Test ID | Scenario | Test | Expected | Actual | Pass/Fail | Notes |
