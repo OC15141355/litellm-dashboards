@@ -55,13 +55,17 @@ Use Sonnet for day-to-day work. Switch to Opus for complex refactoring, architec
 
 ### CLAUDE.md — Project Instructions
 
-`CLAUDE.md` is a file you place in your repo root. Claude Code reads it automatically at the start of every session. Use it to tell Claude about your project:
+`CLAUDE.md` is a file you place in your repo root. Claude Code reads it automatically at the start of every session. Use it to tell Claude about your project.
+
+**Why this matters:** Without CLAUDE.md, Claude Code has to figure out your project from scratch every session. With it, it starts with full context of your stack, conventions, and workflows. This massively improves output quality.
+
+#### Example: Application Repo
 
 ```markdown
 # CLAUDE.md
 
 ## Project Overview
-This is our internal API gateway built with Go 1.22.
+Internal API gateway built with Go 1.22.
 
 ## Tech Stack
 - Go 1.22, Chi router, PostgreSQL 15
@@ -69,10 +73,10 @@ This is our internal API gateway built with Go 1.22.
 - CI/CD: GitHub Actions → ECR → ArgoCD
 
 ## Conventions
-- Use structured logging (slog)
-- All errors must be wrapped with fmt.Errorf("context: %w", err)
+- Structured logging (slog)
+- Errors wrapped: fmt.Errorf("context: %w", err)
 - Tests use testify/assert
-- Database migrations in migrations/ dir (golang-migrate)
+- DB migrations in migrations/ dir (golang-migrate)
 
 ## Commands
 - Build: `go build ./cmd/api`
@@ -81,18 +85,114 @@ This is our internal API gateway built with Go 1.22.
 
 ## Important
 - NEVER commit .env files
-- All secrets are in AWS Secrets Manager
+- All secrets in AWS Secrets Manager
 - Run `make lint` before committing
 ```
 
-**Why this matters:** Without CLAUDE.md, Claude Code has to figure out your project from scratch every session. With it, it starts with full context of your stack, conventions, and workflows. This massively improves output quality.
+#### Example: Terraform/Infrastructure Repo
 
-**Tips:**
-- Keep it concise — bullet points, not essays
-- Include build/test/lint commands
-- List conventions and patterns specific to your codebase
-- Mention things it should NOT do (destructive commands, specific files to avoid)
-- Nest CLAUDE.md files in subdirectories for module-specific context
+```markdown
+# CLAUDE.md
+
+## Project Overview
+Terraform modules for our AWS infrastructure (EKS, RDS, networking).
+
+## Structure
+- modules/         — reusable Terraform modules
+- environments/    — env-specific configs (dev, staging, prod)
+- scripts/         — helper scripts (deploy, rotate-creds)
+
+## Tech Stack
+- Terraform 1.7+, AWS provider ~> 5.0
+- State stored in S3 (bucket: terraform-state-<account-id>)
+- State locking via DynamoDB
+
+## Conventions
+- All resources must have `Environment`, `Team`, and `ManagedBy` tags
+- Use variables for everything — no hardcoded values
+- Module outputs must be documented in README.md
+- Naming: <environment>-<service>-<resource> (e.g. dev-api-alb)
+
+## Commands
+- Init: `terraform init -backend-config=environments/<env>/backend.tfvars`
+- Plan: `terraform plan -var-file=environments/<env>/terraform.tfvars`
+- Validate: `terraform validate`
+- Format: `terraform fmt -recursive`
+
+## CRITICAL RULES
+- NEVER run `terraform apply` or `terraform destroy` — human approval only
+- NEVER modify state files directly
+- NEVER hardcode secrets — use AWS Secrets Manager references
+- Always run `terraform plan` and show me the output before suggesting apply
+- All changes must go through PR review
+```
+
+#### Example: Helm/Kubernetes Repo
+
+```markdown
+# CLAUDE.md
+
+## Project Overview
+Helm charts and Kubernetes manifests for our platform services.
+
+## Structure
+- charts/          — custom Helm charts
+- releases/        — helmfile releases per environment
+- manifests/       — raw K8s manifests (CRDs, cluster-scoped)
+- scripts/         — deploy helpers
+
+## Tech Stack
+- Kubernetes 1.29 (EKS)
+- Helm 3, Helmfile
+- ArgoCD for GitOps
+- Nginx ingress controller
+- External Secrets Operator for secrets
+
+## Conventions
+- All deployments need resource requests AND limits
+- Use PodDisruptionBudgets for production workloads
+- Labels: app.kubernetes.io/name, app.kubernetes.io/version, team
+- Ingress annotations must include timeout settings
+- Secrets via ExternalSecret — never store secrets in this repo
+
+## Commands
+- Lint chart: `helm lint charts/<name>`
+- Template: `helm template charts/<name> -f releases/<env>/values.yaml`
+- Diff: `helmfile -e <env> diff`
+
+## CRITICAL RULES
+- NEVER run `kubectl apply/delete/patch` against shared clusters
+- NEVER run `helm install/upgrade` directly — ArgoCD manages releases
+- NEVER put secrets in values files — use ExternalSecret resources
+- Read-only kubectl is fine: get, describe, logs
+```
+
+#### Nested CLAUDE.md Files
+
+You can place additional CLAUDE.md files in subdirectories. Claude Code reads the nearest one relative to the files being worked on.
+
+```
+repo/
+├── CLAUDE.md                    # Root — project overview, global rules
+├── modules/
+│   └── CLAUDE.md                # Module-specific conventions
+├── environments/
+│   └── CLAUDE.md                # "NEVER modify prod without approval"
+└── scripts/
+    └── CLAUDE.md                # Scripting conventions, test instructions
+```
+
+This lets you scope context. Work in `modules/` and Claude picks up the module-specific instructions without loading everything.
+
+#### Tips for Writing Good CLAUDE.md Files
+
+- **Keep it concise** — bullet points, not essays. Claude reads it every session.
+- **Commands first** — build, test, lint, deploy commands are the most useful thing to include
+- **Rules are critical** — explicit "NEVER do X" rules prevent costly mistakes
+- **Update as you go** — when Claude does something wrong, add a rule to prevent it next time
+- **Team conventions** — coding style, naming patterns, PR process
+- **Link to docs** — reference internal docs: "See docs/ARCHITECTURE.md for service topology"
+- **Don't duplicate** — if it's in the README, just reference it: "Read README.md for setup"
 
 ### ~/.claude/settings.json — Global Config
 
@@ -110,9 +210,34 @@ Your personal Claude Code config. Applies to every project:
 
 ### Memory
 
-Claude Code can remember things across sessions. If you say "remember that we use bun instead of npm", it saves this to its memory files. Next session, it already knows.
+Claude Code can remember things across sessions. Tell it "remember that we always use ap-southeast-2" or "remember I prefer Terraform over CloudFormation", and it saves this to memory files. Next session, it already knows.
 
-Memory is stored in `~/.claude/` and is personal to your machine — not shared with the team. Use CLAUDE.md for team-wide knowledge, memory for personal preferences.
+**How it works:**
+- Stored in `~/.claude/projects/<project>/memory/` — personal to your machine
+- `MEMORY.md` is loaded automatically each session (first 200 lines)
+- Additional topic files (e.g. `debugging.md`, `patterns.md`) for detailed notes
+- Claude Code updates memory automatically when it learns useful patterns
+
+**What to save:**
+- Personal workflow preferences ("I prefer verbose terraform plan output")
+- Recurring issues and their fixes ("RDS connection timeout — increase read_timeout to 300")
+- Environment-specific context ("Dev cluster uses t3.medium nodes")
+- Shortcuts and aliases you use
+
+**What NOT to save:**
+- Secrets, passwords, API keys — memory files are plaintext
+- Things that belong in CLAUDE.md — if the whole team needs it, put it in CLAUDE.md
+- Temporary task context — memory is for durable knowledge
+
+**Memory vs CLAUDE.md:**
+
+| | CLAUDE.md | Memory |
+|---|---|---|
+| Scope | Team-wide | Personal |
+| Stored in | Repo (committed to git) | `~/.claude/` (local) |
+| Shared | Yes — everyone on the project | No — only you |
+| Use for | Conventions, rules, commands | Preferences, learned patterns |
+| Updated by | You (manually) | Claude Code (automatically) or you |
 
 ---
 

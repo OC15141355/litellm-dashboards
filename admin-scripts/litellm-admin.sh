@@ -349,14 +349,37 @@ user_info() {
 
 user_create() {
     local user_email=$1
-    local team_id=$2
+    local user_role=$2
+    local user_id=$3
+    local team_id=$4
 
     if [ -z "$user_email" ]; then
-        echo -e "${RED}Usage: $0 user create <user_email> [team_id]${NC}"
+        echo -e "${RED}Usage: $0 user create <user_email> [role] [user_id] [team_id]${NC}"
+        echo "Roles: proxy_admin, proxy_admin_viewer, internal_user, internal_user_viewer"
         exit 1
     fi
 
+    # Validate role if provided
+    if [ -n "$user_role" ]; then
+        case "$user_role" in
+            proxy_admin|proxy_admin_viewer|internal_user|internal_user_viewer) ;;
+            *)
+                echo -e "${RED}Error: Invalid role '$user_role'${NC}"
+                echo "Valid roles: proxy_admin, proxy_admin_viewer, internal_user, internal_user_viewer"
+                exit 1
+                ;;
+        esac
+    fi
+
     local payload="{\"user_email\": \"${user_email}\""
+
+    if [ -n "$user_role" ]; then
+        payload="${payload}, \"user_role\": \"${user_role}\""
+    fi
+
+    if [ -n "$user_id" ]; then
+        payload="${payload}, \"user_id\": \"${user_id}\""
+    fi
 
     if [ -n "$team_id" ]; then
         payload="${payload}, \"teams\": [\"${team_id}\"]"
@@ -364,7 +387,7 @@ user_create() {
 
     payload="${payload}}"
 
-    echo -e "${BLUE}Creating user: $user_email${NC}"
+    echo -e "${BLUE}Creating user: $user_email (role: ${user_role:-default})${NC}"
     api_call POST "/user/new" "$payload" | jq '.'
 }
 
@@ -396,6 +419,55 @@ user_remove_from_team() {
     local team_id=$(resolve_team "$input") || exit 1
     echo -e "${BLUE}Removing user $user_id from team $input${NC}"
     api_call POST "/team/member_delete" "{\"team_id\": \"${team_id}\", \"user_id\": \"${user_id}\"}" | jq '.'
+}
+
+user_delete() {
+    local user_id=$1
+    if [ -z "$user_id" ]; then
+        echo -e "${RED}Usage: $0 user delete <user_id>${NC}"
+        exit 1
+    fi
+
+    echo -e "${YELLOW}This will delete user '$user_id' and all their associated keys. Continue? (y/N)${NC}"
+    read -r confirm
+    if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+        echo "Aborted."
+        exit 0
+    fi
+
+    # Step 1: Find and delete all keys belonging to this user
+    echo -e "${BLUE}Finding keys for user: $user_id${NC}"
+    local keys=$(api_call GET "/key/list?user_id=${user_id}" | jq -r '.[] | .token // empty' 2>/dev/null)
+
+    if [ -n "$keys" ]; then
+        local key_count=$(echo "$keys" | wc -l | tr -d ' ')
+        echo -e "${BLUE}Deleting $key_count key(s)...${NC}"
+        for key in $keys; do
+            api_call POST "/key/delete" "{\"keys\": [\"${key}\"]}" > /dev/null 2>&1
+            echo -e "  Deleted key: ${key:0:20}..."
+        done
+    else
+        echo -e "  No keys found."
+    fi
+
+    # Step 2: Remove from all teams
+    echo -e "${BLUE}Checking team memberships...${NC}"
+    local teams=$(api_call GET "/user/info?user_id=${user_id}" | jq -r '.teams[]? // empty' 2>/dev/null)
+
+    if [ -n "$teams" ]; then
+        for team_id in $teams; do
+            echo -e "  Removing from team: $team_id"
+            api_call POST "/team/member_delete" "{\"team_id\": \"${team_id}\", \"user_id\": \"${user_id}\"}" > /dev/null 2>&1
+        done
+    else
+        echo -e "  No team memberships found."
+    fi
+
+    # Step 3: Delete the user
+    echo -e "${BLUE}Deleting user: $user_id${NC}"
+    api_call POST "/user/delete" "{\"user_ids\": [\"${user_id}\"]}" | jq '.'
+
+    echo -e "${GREEN}User $user_id fully removed (keys + teams + user).${NC}"
 }
 
 # ==================== AUDIT COMMANDS ====================
@@ -498,9 +570,12 @@ Commands:
 
   user list                           List all users
   user info <user_id>                 Show user details
-  user create <email> [team]          Create a user
-  user add-to-team <user_id> <team> [role]   Add user to team
-  user remove-from-team <user_id> <team>     Remove user from team
+  user create <email> [role] [user_id] [team]   Create a user
+  user delete <user_id>               Delete user (keys + teams + user)
+  user add-to-team <user_id> <team> [role]      Add user to team
+  user remove-from-team <user_id> <team>        Remove user from team
+
+  Roles: proxy_admin, proxy_admin_viewer, internal_user, internal_user_viewer
 
   audit spend [start_date] [end_date]   Spend report for date range
   audit team-spend <team>               Spend report for a team
@@ -521,6 +596,8 @@ Examples:
   $0 team info Engineering              # by alias
   $0 key create Engineering "dev-key" 100
   $0 key list Engineering
+  $0 user create "admin@company.com" proxy_admin "admin-user"
+  $0 user create "dev@company.com" internal_user "dev-user" "team-uuid"
   $0 audit team-spend Engineering
   $0 audit full
   $0 audit all-teams
@@ -563,6 +640,7 @@ main() {
                 list) user_list ;;
                 info) user_info "$@" ;;
                 create) user_create "$@" ;;
+                delete) user_delete "$@" ;;
                 add-to-team) user_add_to_team "$@" ;;
                 remove-from-team) user_remove_from_team "$@" ;;
                 *) show_help; exit 1 ;;
