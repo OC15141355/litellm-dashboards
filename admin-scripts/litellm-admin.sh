@@ -482,7 +482,7 @@ user_offboard() {
 
     # Verify user exists
     local user_info=$(api_call GET "/user/info?user_id=${user_id}" 2>/dev/null)
-    local user_email=$(echo "$user_info" | jq -r '.user_email // empty' 2>/dev/null)
+    local user_email=$(echo "$user_info" | jq -r '.user_info.user_email // .user_email // empty' 2>/dev/null)
 
     if [ -z "$user_email" ]; then
         echo -e "${RED}Error: User '$user_id' not found.${NC}"
@@ -500,7 +500,7 @@ user_offboard() {
 
     # Step 1: Find and delete all keys
     echo -e "${BLUE}[1/3] Deleting keys...${NC}"
-    local keys=$(api_call GET "/key/list?user_id=${user_id}" | jq -r '.[] | .token // empty' 2>/dev/null)
+    local keys=$(echo "$user_info" | jq -r '.keys[]? | .token // empty' 2>/dev/null)
 
     if [ -n "$keys" ]; then
         local key_count=$(echo "$keys" | wc -l | tr -d ' ')
@@ -515,7 +515,7 @@ user_offboard() {
 
     # Step 2: Remove from all teams
     echo -e "${BLUE}[2/3] Removing from teams...${NC}"
-    local teams=$(echo "$user_info" | jq -r '.teams[]? // empty' 2>/dev/null)
+    local teams=$(echo "$user_info" | jq -r '.user_info.teams[]? // .teams[]? // empty' 2>/dev/null)
 
     if [ -n "$teams" ]; then
         for team_id in $teams; do
