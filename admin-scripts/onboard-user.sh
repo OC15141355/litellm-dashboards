@@ -22,7 +22,8 @@ if [[ -z "$USER_ID" || -z "$EMAIL" || -z "$ROLE" || -z "$TEAM" ]]; then
     exit 1
 fi
 
-TEAM_ID=$(resolve_team "$TEAM") || { echo "Team '$TEAM' not found"; exit 1; }
+TEAM_ID=$(resolve_team "$TEAM")
+[[ -z "$TEAM_ID" ]] && echo "Team '$TEAM' not found" && exit 1
 
 echo "[1/4] Creating user: $USER_ID ($EMAIL) as $ROLE"
 AUTOKEY=$(api POST "/user/new" "{\"user_id\":\"$USER_ID\",\"user_email\":\"$EMAIL\",\"user_role\":\"$ROLE\"}" | jq -r '.key // empty')

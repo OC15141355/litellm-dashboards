@@ -23,7 +23,8 @@ if [[ -z "$TEAM" ]]; then
     exit 1
 fi
 
-TEAM_ID=$(resolve_team "$TEAM") || { echo "Team '$TEAM' not found"; exit 1; }
+TEAM_ID=$(resolve_team "$TEAM")
+[[ -z "$TEAM_ID" ]] && echo "Team '$TEAM' not found. Run with no args to list teams." && exit 1
 
 # Get current team models
 CURRENT=$(api GET "/team/info?team_id=${TEAM_ID}" | jq -r '.team_info.models // .models // []')
