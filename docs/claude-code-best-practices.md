@@ -215,7 +215,7 @@ Claude Code can remember things across sessions. Tell it "remember that we alway
 **How it works:**
 - Stored in `~/.claude/projects/<project>/memory/` — personal to your machine
 - `MEMORY.md` is loaded automatically each session (first 200 lines)
-- Additional topic files (e.g. `debugging.md`, `patterns.md`) for detailed notes
+- Additional topic files for detailed notes — read on demand, not auto-loaded
 - Claude Code updates memory automatically when it learns useful patterns
 
 **What to save:**
@@ -238,6 +238,76 @@ Claude Code can remember things across sessions. Tell it "remember that we alway
 | Shared | Yes — everyone on the project | No — only you |
 | Use for | Conventions, rules, commands | Preferences, learned patterns |
 | Updated by | You (manually) | Claude Code (automatically) or you |
+
+#### Topic Files — Scaling Memory Beyond 200 Lines
+
+MEMORY.md is capped at 200 lines (auto-loaded into context every session). For anything that needs more detail, use **topic files** — separate markdown files in the same memory directory that Claude Code reads on demand.
+
+**Structure:**
+
+```
+~/.claude/projects/<project>/memory/
+├── MEMORY.md              # Auto-loaded (200 line cap). Keep concise — summaries and links.
+├── troubleshooting.md     # Debugging playbook, common errors and fixes
+├── infrastructure.md      # IP addresses, node specs, access patterns
+├── resolved-issues.md     # History of issues and how they were resolved
+├── patterns.md            # Code patterns, naming conventions, architectural decisions
+└── runbooks.md            # Step-by-step procedures for common operations
+```
+
+**How they work:**
+- MEMORY.md is the **index** — keep it short with links to topic files
+- Topic files are **not** auto-loaded. Claude Code reads them when it needs context on that topic.
+- No line limit on topic files — they can be as long as needed
+- Claude Code creates and updates these automatically, or you can edit them manually
+
+**Example MEMORY.md (concise, with links):**
+
+```markdown
+# Memory
+
+## Project
+- Terraform repo for AWS infrastructure (EKS, RDS, networking)
+- Region: ap-southeast-2
+- State bucket: terraform-state-123456
+
+## Key Info
+- See [infrastructure.md](infrastructure.md) for full resource map
+- See [troubleshooting.md](troubleshooting.md) for common errors
+- See [resolved-issues.md](resolved-issues.md) for issue history
+
+## Quick Reference
+- EKS cluster: dev-platform-eks
+- RDS endpoint: dev-db.cluster-xxx.ap-southeast-2.rds.amazonaws.com
+- VPN required for RDS access
+- Terraform fmt before every commit
+```
+
+**Example topic file — troubleshooting.md:**
+
+```markdown
+# Troubleshooting
+
+## Terraform state lock stuck
+- Check DynamoDB: `aws dynamodb scan --table-name terraform-locks`
+- Force unlock: `terraform force-unlock <lock-id>`
+- Root cause is usually a crashed `terraform apply`
+
+## RDS connection timeout
+- Security group needs your IP or VPN CIDR
+- Increase read_timeout to 300 in provider config
+- Check if RDS is in a private subnet (needs VPN)
+
+## EKS kubectl auth failure
+- Refresh kubeconfig: `aws eks update-kubeconfig --name dev-platform-eks`
+- Check AWS SSO session: `aws sso login --profile dev`
+- Token expires every 8 hours
+```
+
+**When to use topic files vs MEMORY.md:**
+- If it's a one-liner or quick reference → MEMORY.md
+- If it needs explanation, steps, or context → topic file
+- If MEMORY.md is getting long → move detail to a topic file and link to it
 
 ---
 
