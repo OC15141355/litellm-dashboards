@@ -8,6 +8,7 @@
 #   Set these environment variables or they will be prompted:
 #   - LITELLM_API_BASE: Base URL of LiteLLM (e.g., https://litellm.example.com)
 #   - LITELLM_MASTER_KEY: Master key for admin operations
+#   - LITELLM_INSECURE: Set to 1 to skip SSL verification (self-signed certs)
 
 set -e
 
@@ -16,6 +17,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Check dependencies
@@ -46,7 +48,6 @@ load_config() {
 }
 
 # API helper
-# Set LITELLM_INSECURE=1 to skip SSL verification
 api_call() {
     local method=$1
     local endpoint=$2
@@ -55,7 +56,6 @@ api_call() {
     local url="${LITELLM_API_BASE}${endpoint}"
     local curl_opts="-s"
 
-    # Skip SSL verification if requested (for self-signed certs)
     if [ "${LITELLM_INSECURE:-0}" = "1" ]; then
         curl_opts="$curl_opts -k"
     fi
@@ -75,12 +75,10 @@ api_call() {
 # Resolve team alias to team_id (allows using either)
 resolve_team() {
     local input=$1
-    # If it looks like a UUID, return as-is
     if [[ "$input" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
         echo "$input"
         return
     fi
-    # Otherwise, look up by alias
     local team_id=$(api_call GET "/team/list" | jq -r ".[] | select(.team_alias == \"$input\") | .team_id")
     if [ -z "$team_id" ]; then
         echo -e "${RED}Error: Team '$input' not found${NC}" >&2
@@ -89,12 +87,25 @@ resolve_team() {
     echo "$team_id"
 }
 
+# Validate user role
+validate_role() {
+    local role=$1
+    case "$role" in
+        proxy_admin|proxy_admin_viewer|internal_user|internal_user_viewer) return 0 ;;
+        *)
+            echo -e "${RED}Error: Invalid role '$role'${NC}"
+            echo "Valid roles: proxy_admin, proxy_admin_viewer, internal_user, internal_user_viewer"
+            return 1
+            ;;
+    esac
+}
+
 # ==================== TEAM COMMANDS ====================
 
 team_list() {
     echo -e "${BLUE}Listing all teams...${NC}"
     api_call GET "/team/list" | jq -r '.[] | "\(.team_id)\t\(.team_alias // "N/A")\t$\(.max_budget // "unlimited")\t\(.models // [] | length) models"' | \
-        column -t -s $'\t'
+        (echo -e "TEAM_ID\tALIAS\tBUDGET\tMODELS" && cat) | column -t -s $'\t'
 }
 
 team_info() {
@@ -105,7 +116,7 @@ team_info() {
     fi
 
     local team_id=$(resolve_team "$input") || exit 1
-    echo -e "${BLUE}Team details for: $team_id${NC}"
+    echo -e "${BLUE}Team details for: $input${NC}"
     api_call GET "/team/info?team_id=${team_id}" | jq '.'
 }
 
@@ -126,7 +137,6 @@ team_create() {
     fi
 
     if [ -n "$models" ]; then
-        # Convert comma-separated to JSON array
         local models_json=$(echo "$models" | jq -R 'split(",")')
         payload="${payload}, \"models\": ${models_json}"
     fi
@@ -151,7 +161,6 @@ team_update() {
     local team_id=$(resolve_team "$input") || exit 1
     local payload="{\"team_id\": \"${team_id}\", \"${field}\": "
 
-    # Handle different field types
     case $field in
         max_budget)
             payload="${payload}${value}}"
@@ -197,7 +206,8 @@ team_members() {
 
     local team_id=$(resolve_team "$input") || exit 1
     echo -e "${BLUE}Members of team: $input${NC}"
-    api_call GET "/team/info?team_id=${team_id}" | jq -r '.members_with_roles[]? | "\(.user_id)\t\(.role)"' | column -t -s $'\t'
+    api_call GET "/team/info?team_id=${team_id}" | jq -r '.members_with_roles[]? | "\(.user_id)\t\(.role)"' | \
+        (echo -e "USER_ID\tROLE" && cat) | column -t -s $'\t'
 }
 
 # ==================== KEY COMMANDS ====================
@@ -206,12 +216,13 @@ key_list() {
     local input=$1
 
     echo -e "${BLUE}Listing keys...${NC}"
-    # Keys are nested in team objects, so we pull from /team/list
     if [ -n "$input" ]; then
         local team_id=$(resolve_team "$input") || exit 1
-        api_call GET "/team/info?team_id=${team_id}" | jq -r '.keys[]? | "\(.token[0:20])...\t\(.key_alias // "N/A")\t\(.team_id // "N/A")\t$\(.max_budget // "unlimited")\t$\(.spend // 0)"' | column -t -s $'\t'
+        api_call GET "/team/info?team_id=${team_id}" | jq -r '.keys[]? | "\(.token[0:20])...\t\(.key_alias // "N/A")\t\(.team_id // "N/A")\t$\(.max_budget // "unlimited")\t$\(.spend // 0)"' | \
+            (echo -e "KEY\tALIAS\tTEAM\tBUDGET\tSPEND" && cat) | column -t -s $'\t'
     else
-        api_call GET "/team/list" | jq -r '.[] | .team_alias as $team | .keys[]? | "\(.token[0:20])...\t\(.key_alias // "N/A")\t\($team // "N/A")\t$\(.max_budget // "unlimited")\t$\(.spend // 0)"' | column -t -s $'\t'
+        api_call GET "/team/list" | jq -r '.[] | .team_alias as $team | .keys[]? | "\(.token[0:20])...\t\(.key_alias // "N/A")\t\($team // "N/A")\t$\(.max_budget // "unlimited")\t$\(.spend // 0)"' | \
+            (echo -e "KEY\tALIAS\tTEAM\tBUDGET\tSPEND" && cat) | column -t -s $'\t'
     fi
 }
 
@@ -259,7 +270,6 @@ key_create() {
     result=$(api_call POST "/key/generate" "$payload")
     echo "$result" | jq '.'
 
-    # Extract and highlight the key
     key=$(echo "$result" | jq -r '.key // empty')
     if [ -n "$key" ]; then
         echo -e "\n${GREEN}New API Key: ${key}${NC}"
@@ -333,7 +343,8 @@ key_move() {
 
 user_list() {
     echo -e "${BLUE}Listing users...${NC}"
-    api_call GET "/user/list" | jq -r '.users[]? | "\(.user_id)\t\(.user_email // "N/A")\t\(.teams // [] | join(","))"' | column -t -s $'\t'
+    api_call GET "/user/list" | jq -r '.users[]? | "\(.user_id)\t\(.user_email // "N/A")\t\(.user_role // "N/A")\t\(.teams // [] | join(","))"' | \
+        (echo -e "USER_ID\tEMAIL\tROLE\tTEAMS" && cat) | column -t -s $'\t'
 }
 
 user_info() {
@@ -348,47 +359,183 @@ user_info() {
 }
 
 user_create() {
-    local user_email=$1
-    local user_role=$2
-    local user_id=$3
-    local team_id=$4
+    local user_id=$1
+    local user_email=$2
+    local user_role=$3
 
-    if [ -z "$user_email" ]; then
-        echo -e "${RED}Usage: $0 user create <user_email> [role] [user_id] [team_id]${NC}"
-        echo "Roles: proxy_admin, proxy_admin_viewer, internal_user, internal_user_viewer"
+    if [ -z "$user_id" ] || [ -z "$user_email" ] || [ -z "$user_role" ]; then
+        echo -e "${RED}Usage: $0 user create <user_id> <user_email> <role>${NC}"
+        echo ""
+        echo "Roles:"
+        echo "  proxy_admin           Full admin access to LiteLLM UI and API"
+        echo "  proxy_admin_viewer    Read-only admin access"
+        echo "  internal_user         API access only (bypasses SSO user limit)"
+        echo "  internal_user_viewer  Read-only API access"
         exit 1
     fi
 
-    # Validate role if provided
-    if [ -n "$user_role" ]; then
-        case "$user_role" in
-            proxy_admin|proxy_admin_viewer|internal_user|internal_user_viewer) ;;
-            *)
-                echo -e "${RED}Error: Invalid role '$user_role'${NC}"
-                echo "Valid roles: proxy_admin, proxy_admin_viewer, internal_user, internal_user_viewer"
-                exit 1
-                ;;
-        esac
-    fi
+    validate_role "$user_role" || exit 1
 
-    local payload="{\"user_email\": \"${user_email}\""
+    local payload="{\"user_id\": \"${user_id}\", \"user_email\": \"${user_email}\", \"user_role\": \"${user_role}\"}"
 
-    if [ -n "$user_role" ]; then
-        payload="${payload}, \"user_role\": \"${user_role}\""
-    fi
-
-    if [ -n "$user_id" ]; then
-        payload="${payload}, \"user_id\": \"${user_id}\""
-    fi
-
-    if [ -n "$team_id" ]; then
-        payload="${payload}, \"teams\": [\"${team_id}\"]"
-    fi
-
-    payload="${payload}}"
-
-    echo -e "${BLUE}Creating user: $user_email (role: ${user_role:-default})${NC}"
+    echo -e "${BLUE}Creating user: $user_id ($user_email) as $user_role${NC}"
     api_call POST "/user/new" "$payload" | jq '.'
+}
+
+# Full onboarding: create user → clean auto-key → add to team → generate proper key
+user_onboard() {
+    local user_id=$1
+    local user_email=$2
+    local user_role=$3
+    local team=$4
+    local key_alias=$5
+
+    if [ -z "$user_id" ] || [ -z "$user_email" ] || [ -z "$user_role" ] || [ -z "$team" ]; then
+        echo -e "${RED}Usage: $0 user onboard <user_id> <user_email> <role> <team> [key_alias]${NC}"
+        echo ""
+        echo "Full onboarding workflow:"
+        echo "  1. Creates the user account"
+        echo "  2. Removes the auto-generated orphan key"
+        echo "  3. Adds user to the specified team"
+        echo "  4. Generates a proper team-attributed key"
+        echo ""
+        echo "Roles: proxy_admin, proxy_admin_viewer, internal_user, internal_user_viewer"
+        echo ""
+        echo "Examples:"
+        echo "  $0 user onboard jsmith john@company.com internal_user engineering"
+        echo "  $0 user onboard jsmith john@company.com proxy_admin engineering jsmith-key"
+        exit 1
+    fi
+
+    validate_role "$user_role" || exit 1
+
+    # Default key alias to user_id
+    if [ -z "$key_alias" ]; then
+        key_alias="${user_id}-key"
+    fi
+
+    local team_id=$(resolve_team "$team") || exit 1
+
+    echo -e "${CYAN}=== Onboarding: $user_id ===${NC}"
+    echo ""
+
+    # Step 1: Create user
+    echo -e "${BLUE}[1/4] Creating user: $user_id ($user_email) as $user_role${NC}"
+    local create_result=$(api_call POST "/user/new" "{\"user_id\": \"${user_id}\", \"user_email\": \"${user_email}\", \"user_role\": \"${user_role}\"}")
+
+    local created_key=$(echo "$create_result" | jq -r '.key // empty')
+    if [ -z "$created_key" ]; then
+        echo -e "${RED}Failed to create user. Response:${NC}"
+        echo "$create_result" | jq '.'
+        exit 1
+    fi
+    echo -e "  ${GREEN}User created.${NC}"
+
+    # Step 2: Delete the auto-generated orphan key
+    echo -e "${BLUE}[2/4] Removing auto-generated orphan key${NC}"
+    api_call POST "/key/delete" "{\"keys\": [\"${created_key}\"]}" > /dev/null 2>&1
+    echo -e "  ${GREEN}Orphan key removed.${NC}"
+
+    # Step 3: Add to team
+    echo -e "${BLUE}[3/4] Adding to team: $team${NC}"
+    api_call POST "/team/member_add" "{\"team_id\": \"${team_id}\", \"member\": {\"user_id\": \"${user_id}\", \"role\": \"user\"}}" > /dev/null 2>&1
+    echo -e "  ${GREEN}Added to team.${NC}"
+
+    # Step 4: Generate proper key with team attribution
+    echo -e "${BLUE}[4/4] Generating team key: $key_alias${NC}"
+    local key_result=$(api_call POST "/key/generate" "{\"user_id\": \"${user_id}\", \"team_id\": \"${team_id}\", \"key_alias\": \"${key_alias}\"}")
+
+    local new_key=$(echo "$key_result" | jq -r '.key // empty')
+    if [ -n "$new_key" ]; then
+        echo -e "  ${GREEN}Key generated.${NC}"
+    else
+        echo -e "  ${RED}Failed to generate key. Response:${NC}"
+        echo "$key_result" | jq '.'
+        exit 1
+    fi
+
+    # Summary
+    echo ""
+    echo -e "${CYAN}=== Onboarding Complete ===${NC}"
+    echo -e "  User ID:    ${GREEN}$user_id${NC}"
+    echo -e "  Email:      $user_email"
+    echo -e "  Role:       $user_role"
+    echo -e "  Team:       $team"
+    echo -e "  Key Alias:  $key_alias"
+    echo -e "  API Key:    ${GREEN}$new_key${NC}"
+    echo ""
+    echo -e "${YELLOW}Send the API key to the user securely. It cannot be retrieved later.${NC}"
+}
+
+# Full offboarding: delete keys → remove from teams → delete user
+user_offboard() {
+    local user_id=$1
+    if [ -z "$user_id" ]; then
+        echo -e "${RED}Usage: $0 user offboard <user_id>${NC}"
+        echo ""
+        echo "Full offboarding workflow:"
+        echo "  1. Deletes all keys belonging to the user"
+        echo "  2. Removes user from all teams"
+        echo "  3. Deletes the user account"
+        exit 1
+    fi
+
+    # Verify user exists
+    local user_info=$(api_call GET "/user/info?user_id=${user_id}" 2>/dev/null)
+    local user_email=$(echo "$user_info" | jq -r '.user_email // empty' 2>/dev/null)
+
+    if [ -z "$user_email" ]; then
+        echo -e "${RED}Error: User '$user_id' not found.${NC}"
+        exit 1
+    fi
+
+    echo -e "${CYAN}=== Offboarding: $user_id ($user_email) ===${NC}"
+    echo ""
+    echo -e "${YELLOW}This will permanently delete the user and all associated keys. Continue? (y/N)${NC}"
+    read -r confirm
+    if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+        echo "Aborted."
+        exit 0
+    fi
+
+    # Step 1: Find and delete all keys
+    echo -e "${BLUE}[1/3] Deleting keys...${NC}"
+    local keys=$(api_call GET "/key/list?user_id=${user_id}" | jq -r '.[] | .token // empty' 2>/dev/null)
+
+    if [ -n "$keys" ]; then
+        local key_count=$(echo "$keys" | wc -l | tr -d ' ')
+        echo -e "  Found $key_count key(s)"
+        for key in $keys; do
+            api_call POST "/key/delete" "{\"keys\": [\"${key}\"]}" > /dev/null 2>&1
+            echo -e "  ${GREEN}Deleted: ${key:0:20}...${NC}"
+        done
+    else
+        echo -e "  No keys found."
+    fi
+
+    # Step 2: Remove from all teams
+    echo -e "${BLUE}[2/3] Removing from teams...${NC}"
+    local teams=$(echo "$user_info" | jq -r '.teams[]? // empty' 2>/dev/null)
+
+    if [ -n "$teams" ]; then
+        for team_id in $teams; do
+            local team_alias=$(api_call GET "/team/info?team_id=${team_id}" | jq -r '.team_alias // empty' 2>/dev/null)
+            api_call POST "/team/member_delete" "{\"team_id\": \"${team_id}\", \"user_id\": \"${user_id}\"}" > /dev/null 2>&1
+            echo -e "  ${GREEN}Removed from: ${team_alias:-$team_id}${NC}"
+        done
+    else
+        echo -e "  No team memberships found."
+    fi
+
+    # Step 3: Delete user
+    echo -e "${BLUE}[3/3] Deleting user...${NC}"
+    api_call POST "/user/delete" "{\"user_ids\": [\"${user_id}\"]}" > /dev/null 2>&1
+    echo -e "  ${GREEN}User deleted.${NC}"
+
+    echo ""
+    echo -e "${CYAN}=== Offboarding Complete ===${NC}"
+    echo -e "  ${GREEN}$user_id ($user_email) has been fully removed.${NC}"
+    echo -e "  Keys deleted, team memberships removed, user account deleted."
 }
 
 user_add_to_team() {
@@ -421,55 +568,6 @@ user_remove_from_team() {
     api_call POST "/team/member_delete" "{\"team_id\": \"${team_id}\", \"user_id\": \"${user_id}\"}" | jq '.'
 }
 
-user_delete() {
-    local user_id=$1
-    if [ -z "$user_id" ]; then
-        echo -e "${RED}Usage: $0 user delete <user_id>${NC}"
-        exit 1
-    fi
-
-    echo -e "${YELLOW}This will delete user '$user_id' and all their associated keys. Continue? (y/N)${NC}"
-    read -r confirm
-    if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
-        echo "Aborted."
-        exit 0
-    fi
-
-    # Step 1: Find and delete all keys belonging to this user
-    echo -e "${BLUE}Finding keys for user: $user_id${NC}"
-    local keys=$(api_call GET "/key/list?user_id=${user_id}" | jq -r '.[] | .token // empty' 2>/dev/null)
-
-    if [ -n "$keys" ]; then
-        local key_count=$(echo "$keys" | wc -l | tr -d ' ')
-        echo -e "${BLUE}Deleting $key_count key(s)...${NC}"
-        for key in $keys; do
-            api_call POST "/key/delete" "{\"keys\": [\"${key}\"]}" > /dev/null 2>&1
-            echo -e "  Deleted key: ${key:0:20}..."
-        done
-    else
-        echo -e "  No keys found."
-    fi
-
-    # Step 2: Remove from all teams
-    echo -e "${BLUE}Checking team memberships...${NC}"
-    local teams=$(api_call GET "/user/info?user_id=${user_id}" | jq -r '.teams[]? // empty' 2>/dev/null)
-
-    if [ -n "$teams" ]; then
-        for team_id in $teams; do
-            echo -e "  Removing from team: $team_id"
-            api_call POST "/team/member_delete" "{\"team_id\": \"${team_id}\", \"user_id\": \"${user_id}\"}" > /dev/null 2>&1
-        done
-    else
-        echo -e "  No team memberships found."
-    fi
-
-    # Step 3: Delete the user
-    echo -e "${BLUE}Deleting user: $user_id${NC}"
-    api_call POST "/user/delete" "{\"user_ids\": [\"${user_id}\"]}" | jq '.'
-
-    echo -e "${GREEN}User $user_id fully removed (keys + teams + user).${NC}"
-}
-
 # ==================== AUDIT COMMANDS ====================
 
 audit_spend() {
@@ -477,7 +575,6 @@ audit_spend() {
     local end_date=$2
 
     if [ -z "$start_date" ]; then
-        # Default to last 30 days
         start_date=$(date -v-30d +%Y-%m-%d 2>/dev/null || date -d "30 days ago" +%Y-%m-%d)
     fi
 
@@ -546,61 +643,98 @@ models() {
 # ==================== MAIN ====================
 
 show_help() {
-    cat << EOF
+    cat << 'EOF'
 LiteLLM Admin CLI
+=================
 
-Usage: $0 <command> <subcommand> [options]
+Usage: litellm-admin.sh <command> <subcommand> [options]
 
-Note: Team commands accept either team_id (UUID) or team_alias (name).
+TEAM MANAGEMENT
+  team list                                    List all teams
+  team info <team>                             Show team details
+  team create <alias> [budget] [models]        Create a new team
+  team update <team> <field> <value>           Update team (fields: team_alias, max_budget, models)
+  team delete <team>                           Delete a team
+  team members <team>                          List team members
 
-Commands:
-  team list                           List all teams
-  team info <team>                    Show team details
-  team create <alias> [budget] [models]   Create a new team
-  team update <team> <field> <value>  Update team field
-  team delete <team>                  Delete a team
-  team members <team>                 List team members
+KEY MANAGEMENT
+  key list [team]                              List keys (optionally filter by team)
+  key info <key>                               Show key details
+  key create <team> [alias] [budget] [models]  Create a key
+  key update <key> <field> <value>             Update key (fields: key_alias, max_budget, models)
+  key delete <key>                             Delete a key
+  key move <key> <new_team>                    Move key to a different team
 
-  key list [team]                     List keys (optionally filter by team)
-  key info <key>                      Show key details
-  key create <team> [alias] [budget] [models]   Create a key
-  key update <key> <field> <value>    Update key field
-  key delete <key>                    Delete a key
-  key move <key> <new_team>           Move key to different team
+USER MANAGEMENT
+  user list                                    List all users
+  user info <user_id>                          Show user details
+  user create <user_id> <email> <role>         Create a user
+  user add-to-team <user_id> <team> [role]     Add user to team (roles: user, admin)
+  user remove-from-team <user_id> <team>       Remove user from team
 
-  user list                           List all users
-  user info <user_id>                 Show user details
-  user create <email> [role] [user_id] [team]   Create a user
-  user delete <user_id>               Delete user (keys + teams + user)
-  user add-to-team <user_id> <team> [role]      Add user to team
-  user remove-from-team <user_id> <team>        Remove user from team
+USER LIFECYCLE (RECOMMENDED)
+  user onboard <user_id> <email> <role> <team> [key_alias]
+    Full onboarding workflow:
+      1. Creates user account
+      2. Removes auto-generated orphan key
+      3. Adds user to team
+      4. Generates a proper team-attributed key
+      5. Outputs the key for you to share securely
 
-  Roles: proxy_admin, proxy_admin_viewer, internal_user, internal_user_viewer
+  user offboard <user_id>
+    Full offboarding workflow:
+      1. Deletes all keys belonging to the user
+      2. Removes user from all teams
+      3. Deletes the user account
 
-  audit spend [start_date] [end_date]   Spend report for date range
-  audit team-spend <team>               Spend report for a team
-  audit all-teams                       Spend summary for all teams
-  audit full                            Full audit (teams, members, keys)
-  audit models                          Model usage summary
+ROLES
+  proxy_admin            Full admin — UI and API access
+  proxy_admin_viewer     Read-only admin
+  internal_user          API-only access (bypasses SSO 5-user limit)
+  internal_user_viewer   Read-only API access
 
-  health                              Check LiteLLM health
-  models                              List available models
+AUDITING
+  audit spend [start] [end]                    Spend report for date range (default: last 30 days)
+  audit team-spend <team>                      Spend report for a team
+  audit all-teams                              Spend summary across all teams
+  audit full                                   Full audit (teams, members, keys, spend)
+  audit models                                 Model usage summary
 
-Environment Variables:
-  LITELLM_API_BASE     Base URL of LiteLLM instance
+SYSTEM
+  health                                       Check LiteLLM health
+  models                                       List available models
+
+ENVIRONMENT VARIABLES
+  LITELLM_API_BASE     Base URL (e.g., https://litellm.example.com)
   LITELLM_MASTER_KEY   Master API key for admin operations
   LITELLM_INSECURE     Set to 1 to skip SSL verification
 
-Examples:
-  $0 team create "Engineering" 500 "gpt-4,claude-3-sonnet"
-  $0 team info Engineering              # by alias
-  $0 key create Engineering "dev-key" 100
-  $0 key list Engineering
-  $0 user create "admin@company.com" proxy_admin "admin-user"
-  $0 user create "dev@company.com" internal_user "dev-user" "team-uuid"
-  $0 audit team-spend Engineering
-  $0 audit full
-  $0 audit all-teams
+EXAMPLES
+  # Onboard a new developer
+  litellm-admin.sh user onboard jsmith john@company.com internal_user engineering
+
+  # Onboard an admin with custom key alias
+  litellm-admin.sh user onboard admin1 admin@company.com proxy_admin platform admin1-key
+
+  # Offboard a departing user (clean removal)
+  litellm-admin.sh user offboard jsmith
+
+  # Create a team with budget and model access
+  litellm-admin.sh team create "Engineering" 500 "claude-sonnet,claude-opus"
+
+  # Generate a shared team key
+  litellm-admin.sh key create engineering "ci-cd-key" 100
+
+  # Check spend across all teams
+  litellm-admin.sh audit all-teams
+
+  # Full audit report
+  litellm-admin.sh audit full
+
+NOTE
+  Team arguments accept either team_id (UUID) or team_alias (name).
+  Use 'user onboard' and 'user offboard' instead of manual create/delete
+  to avoid orphaned keys in the database.
 EOF
 }
 
@@ -640,7 +774,8 @@ main() {
                 list) user_list ;;
                 info) user_info "$@" ;;
                 create) user_create "$@" ;;
-                delete) user_delete "$@" ;;
+                onboard) user_onboard "$@" ;;
+                offboard) user_offboard "$@" ;;
                 add-to-team) user_add_to_team "$@" ;;
                 remove-from-team) user_remove_from_team "$@" ;;
                 *) show_help; exit 1 ;;
