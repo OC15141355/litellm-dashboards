@@ -1,6 +1,6 @@
 #!/bin/bash
 # Usage: ./update-team-models.sh <team>
-# Shows available models, lets you pick which ones to assign to a team
+# Interactive model assignment for a team
 set -e
 
 [[ -z "$LITELLM_API_BASE" ]] && read -p "LiteLLM URL: " LITELLM_API_BASE
@@ -26,76 +26,45 @@ fi
 TEAM_ID=$(resolve_team "$TEAM")
 [[ -z "$TEAM_ID" ]] && echo "Team '$TEAM' not found. Run with no args to list teams." && exit 1
 
-# Get current team models
 CURRENT=$(api GET "/team/info?team_id=${TEAM_ID}" | jq -r '.team_info.models // .models // []')
 echo "Team: $TEAM ($TEAM_ID)"
 echo "Current models: $CURRENT"
 echo ""
 
-# Get available models
 MODELS=$(api GET "/models" | jq -r '.data[].id' | sort)
 echo "Available models:"
-i=1
-declare -a MODEL_LIST
+i=1; declare -a MODEL_LIST
 while IFS= read -r model; do
     MODEL_LIST+=("$model")
-    # Mark if currently assigned
-    if echo "$CURRENT" | jq -e ". | index(\"$model\")" >/dev/null 2>&1; then
-        echo "  $i) $model *"
-    else
-        echo "  $i) $model"
-    fi
+    marker=""; echo "$CURRENT" | jq -e ". | index(\"$model\")" >/dev/null 2>&1 && marker=" *"
+    echo "  $i) ${model}${marker}"
     ((i++))
 done <<< "$MODELS"
-
-echo ""
 echo "  a) All models (no restriction)"
 echo "  * = currently assigned"
 echo ""
-read -p "Enter model numbers (comma-separated) or 'a' for all: " SELECTION
+read -p "Select (comma-separated or 'a'): " SELECTION
 
 if [[ "$SELECTION" == "a" ]]; then
-    SELECTED_JSON="[]"
-    echo ""
-    echo "Setting team to: all models (no restriction)"
+    SELECTED="[]"
 else
-    SELECTED_JSON="["
-    first=true
+    SELECTED="["; first=true
     IFS=',' read -ra PICKS <<< "$SELECTION"
-    for pick in "${PICKS[@]}"; do
-        pick=$(echo "$pick" | tr -d ' ')
-        idx=$((pick - 1))
-        if [[ $idx -ge 0 && $idx -lt ${#MODEL_LIST[@]} ]]; then
-            $first || SELECTED_JSON+=","
-            SELECTED_JSON+="\"${MODEL_LIST[$idx]}\""
-            first=false
-        else
-            echo "Invalid selection: $pick"
-            exit 1
-        fi
+    for p in "${PICKS[@]}"; do
+        idx=$(($(echo "$p" | tr -d ' ') - 1))
+        [[ $idx -lt 0 || $idx -ge ${#MODEL_LIST[@]} ]] && echo "Invalid: $p" && exit 1
+        $first || SELECTED+=","; SELECTED+="\"${MODEL_LIST[$idx]}\""; first=false
     done
-    SELECTED_JSON+="]"
-    echo ""
-    echo "Setting team to: $SELECTED_JSON"
+    SELECTED+="]"
 fi
 
-echo ""
+echo "Setting: $SELECTED"
 read -p "Confirm? (y/n): " CONFIRM
 [[ "$CONFIRM" != "y" ]] && echo "Aborted." && exit 0
 
-RESULT=$(api POST "/team/update" "{\"team_id\":\"$TEAM_ID\",\"models\":$SELECTED_JSON}")
-
-# Check for errors
+RESULT=$(api POST "/team/update" "{\"team_id\":\"$TEAM_ID\",\"models\":$SELECTED}")
 ERROR=$(echo "$RESULT" | jq -r '.error // empty' 2>/dev/null)
-if [[ -n "$ERROR" ]]; then
-    echo "Error: $ERROR"
-    echo ""
-    echo "Full response:"
-    echo "$RESULT" | jq '.' 2>/dev/null || echo "$RESULT"
-    exit 1
-fi
+[[ -n "$ERROR" ]] && echo "Error: $ERROR" && echo "$RESULT" | jq '.' 2>/dev/null && exit 1
 
-echo "Done. Team '$TEAM' models updated."
-echo ""
-echo "Verify:"
+echo "Done."
 api GET "/team/info?team_id=${TEAM_ID}" | jq '.team_info.models // .models'
