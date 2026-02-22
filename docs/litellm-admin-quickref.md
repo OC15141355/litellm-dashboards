@@ -194,6 +194,103 @@ curl -sk -X POST "$LITELLM_API_BASE/team/update" \
 
 ---
 
+## 4. Rotate Key
+
+Deletes all existing keys for a user, generates a fresh one on the same team.
+
+**Script:**
+```bash
+./rotate-key.sh <user_id>
+
+# Example
+./rotate-key.sh jsmith
+```
+
+**Output:**
+```
+User:  jsmith (john@company.com)
+Keys:  1
+Team:  abc-123-uuid
+
+Rotate keys for jsmith? (y/n): y
+
+[1/2] Deleting old keys...
+  Deleted: jsmith-key
+[2/2] Generating new key: jsmith-key
+
+Done! User: jsmith | Key: sk-xxxxxxxxxxxxxxxx
+Send the new API key securely. Old keys are now invalid.
+```
+
+**Curl equivalent:**
+```bash
+# Step 1: Get user info (find keys + team)
+curl -sk "$LITELLM_API_BASE/user/info?user_id=jsmith" \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" | jq '{keys: [.keys[]?.token], team: .keys[0]?.team_id, alias: .keys[0]?.key_alias}'
+
+# Step 2: Delete old keys
+curl -sk -X POST "$LITELLM_API_BASE/key/delete" \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"keys": ["sk-old-key"]}'
+
+# Step 3: Generate new key on same team
+curl -sk -X POST "$LITELLM_API_BASE/key/generate" \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "jsmith",
+    "team_id": "<team-uuid>",
+    "key_alias": "jsmith-key"
+  }'
+```
+
+---
+
+## 5. Bulk Onboard
+
+Onboard multiple users from a CSV file. Same workflow as onboard-user.sh but in a loop.
+
+**CSV format:**
+```csv
+user_id,email,role,team,key_alias
+jsmith,john@company.com,internal_user,D102,jsmith-key
+alee,alice@company.com,internal_user,D102,
+bwong,bob@company.com,proxy_admin,D102,bwong-admin
+```
+
+- Header row is optional (skipped automatically)
+- `key_alias` is optional — defaults to `<user_id>-key`
+- Lines starting with `#` are skipped
+
+**Script:**
+```bash
+./bulk-onboard.sh users.csv
+```
+
+**Output:**
+```
+Users to onboard:
+---
+  jsmith (john@company.com) as internal_user → D102
+  alee (alice@company.com) as internal_user → D102
+  bwong (bob@company.com) as proxy_admin → D102
+---
+Total: 3
+
+Proceed? (y/n): y
+
+OK:   jsmith (john@company.com) → sk-xxxxxxxxxxxx
+OK:   alee (alice@company.com) → sk-xxxxxxxxxxxx
+OK:   bwong (bob@company.com) → sk-xxxxxxxxxxxx
+
+Done. 3 succeeded, 0 failed.
+```
+
+**Curl equivalent:** Same as onboard (section 1), repeated per user. The script just automates the 4-step onboard workflow for each CSV row.
+
+---
+
 ## User Roles
 
 | Role | Access | SSO Limit |
@@ -295,16 +392,17 @@ curl -sk "$LITELLM_API_BASE/model/info" \
   -H "Authorization: Bearer $LITELLM_MASTER_KEY" | jq '.data[] | {model_name, input_cost: .model_info.input_cost_per_token, output_cost: .model_info.output_cost_per_token}'
 
 # Add new model (when UI dropdown doesn't have it)
+# IMPORTANT: custom_llm_provider must be "bedrock_converse" for Bedrock models
 curl -sk -X POST "$LITELLM_API_BASE/model/new" \
   -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "model_name": "claude-sonnet-4.6",
     "litellm_params": {
-      "model": "bedrock/au.anthropic.claude-sonnet-4-6-v1:0",
+      "model": "au.anthropic.claude-sonnet-4-6",
+      "custom_llm_provider": "bedrock_converse",
       "api_key": "BEDROCK_API_KEY",
-      "aws_bedrock_runtime_endpoint": "https://your-endpoint.amazonaws.com",
-      "drop_params": true
+      "aws_bedrock_runtime_endpoint": "https://your-endpoint.amazonaws.com"
     }
   }'
 ```
