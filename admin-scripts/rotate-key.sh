@@ -52,6 +52,9 @@ fi
 
 [[ -z "$TEAM_ID" || "$TEAM_ID" == "no team" ]] && echo "Selected key has no team. Can't rotate." && exit 1
 
+read -p "Confirm rotation? (y/n): " CONFIRM
+[[ "$CONFIRM" != "y" ]] && echo "Aborted." && exit 0
+
 echo ""
 echo "[1/2] Deleting selected keys..."
 for idx in "${TO_DELETE[@]}"; do

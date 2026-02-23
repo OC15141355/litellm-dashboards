@@ -42,25 +42,16 @@ while IFS=',' read -r uid email role team alias; do
     alias=$(echo "$alias" | tr -d '\r')
 
     TEAM_ID=$(resolve_team "$team")
-    if [[ -z "$TEAM_ID" ]]; then
-        echo "FAIL: $uid — team '$team' not found"
-        ((FAIL++)); continue
-    fi
+    [[ -z "$TEAM_ID" ]] && echo "FAIL: $uid — team '$team' not found" && ((FAIL++)) && continue
 
     AUTOKEY=$(api POST "/user/new" "{\"user_id\":\"$uid\",\"user_email\":\"$email\",\"user_role\":\"$role\"}" | jq -r '.key // empty')
-    if [[ -z "$AUTOKEY" ]]; then
-        echo "FAIL: $uid — could not create user"
-        ((FAIL++)); continue
-    fi
+    [[ -z "$AUTOKEY" ]] && echo "FAIL: $uid — could not create user" && ((FAIL++)) && continue
 
     api POST "/key/delete" "{\"keys\":[\"$AUTOKEY\"]}" >/dev/null 2>&1
     api POST "/team/member_add" "{\"team_id\":\"$TEAM_ID\",\"member\":{\"user_id\":\"$uid\",\"role\":\"user\"}}" >/dev/null 2>&1
 
     KEY=$(api POST "/key/generate" "{\"user_id\":\"$uid\",\"team_id\":\"$TEAM_ID\",\"key_alias\":\"$alias\"}" | jq -r '.key // empty')
-    if [[ -z "$KEY" ]]; then
-        echo "FAIL: $uid — user created but key generation failed"
-        ((FAIL++)); continue
-    fi
+    [[ -z "$KEY" ]] && echo "FAIL: $uid — user created but key generation failed" && ((FAIL++)) && continue
 
     echo "OK:   $uid ($email) → $KEY"
     ((OK++))

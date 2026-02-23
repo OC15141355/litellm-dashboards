@@ -16,11 +16,7 @@ resolve_team() {
 
 USER_ID=$1; EMAIL=$2; ROLE=$3; TEAM=$4; KEY_ALIAS=${5:-"${1}-key"}
 
-if [[ -z "$USER_ID" || -z "$EMAIL" || -z "$ROLE" || -z "$TEAM" ]]; then
-    echo "Usage: $0 <user_id> <email> <role> <team> [key_alias]"
-    echo "Roles: proxy_admin, proxy_admin_viewer, internal_user, internal_user_viewer"
-    exit 1
-fi
+[[ -z "$USER_ID" || -z "$EMAIL" || -z "$ROLE" || -z "$TEAM" ]] && echo "Usage: $0 <user_id> <email> <role> <team> [key_alias]" && echo "Roles: proxy_admin, proxy_admin_viewer, internal_user, internal_user_viewer" && exit 1
 
 TEAM_ID=$(resolve_team "$TEAM")
 [[ -z "$TEAM_ID" ]] && echo "Team '$TEAM' not found" && exit 1

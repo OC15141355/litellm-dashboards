@@ -22,9 +22,9 @@ KEY_COUNT=$([[ -n "$KEYS" ]] && echo "$KEYS" | wc -l | tr -d ' ' || echo 0)
 TEAMS=$(echo "$INFO" | jq -r '.user_info.teams[]? // empty')
 TEAM_COUNT=$([[ -n "$TEAMS" ]] && echo "$TEAMS" | wc -l | tr -d ' ' || echo 0)
 
-echo "User:  $USER_ID ($EMAIL)"
-echo "Role:  $ROLE"
-echo "Keys:  $KEY_COUNT"
+echo "User: $USER_ID ($EMAIL)"
+echo "Role: $ROLE"
+echo "Keys: $KEY_COUNT"
 echo "$INFO" | jq -r '.keys[]? | "  - \(.key_alias // .key_name // "unnamed")"' 2>/dev/null
 echo "Teams: $TEAM_COUNT"
 echo ""
