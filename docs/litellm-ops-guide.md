@@ -270,8 +270,8 @@ litellm_settings:
 
 ```yaml
 general_settings:
-  # --- Logging & Auditing ---
-  store_prompts_in_spend_logs: true    # Log full request/response text (DB heavy!)
+  # --- Logging & Auditing (see docs/litellm-logging.md) ---
+  store_prompts_in_spend_logs: false   # Metadata only — full payloads off (see logging doc)
   disable_spend_logs: false            # Set true to stop all spend logging
 
   # --- Spend Log Retention ---
@@ -311,7 +311,7 @@ litellm_settings:
 
   # --- Logging ---
   json_logs: true                      # Structured JSON log output
-  turn_off_message_logging: false      # Hide prompt content from logs (keeps metadata)
+  turn_off_message_logging: true       # Metadata only, no prompt/response bodies (see logging doc)
 
   # --- Reliability ---
   default_fallbacks: ["claude-sonnet"] # Fallback model if primary fails
@@ -342,10 +342,10 @@ litellm_settings:
 | Setting | What It Does | When to Use |
 |---------|-------------|-------------|
 | `drop_params: true` | Strip unsupported API params | **Always** with Bedrock |
-| `store_prompts_in_spend_logs` | Log full prompts/responses | Auditing (warning: DB heavy) |
-| `maximum_spend_logs_retention_period` | Auto-delete old logs | When prompt logging is on |
+| `store_prompts_in_spend_logs` | Log full prompts/responses | **Off** — see `docs/litellm-logging.md` |
+| `maximum_spend_logs_retention_period` | Auto-delete old logs | Always on (30d) |
 | `json_logs: true` | Structured log output | If shipping to log aggregator |
-| `turn_off_message_logging` | Redact prompts from logs | Privacy without losing metadata |
+| `turn_off_message_logging` | Drop prompt/response bodies | **On** — metadata only, see logging doc |
 | `background_health_checks` | Periodic model pings | Production |
 | `default_fallbacks` | Backup models | Production reliability |
 | `disable_master_key_return` | Don't expose master key | Security hardening |
