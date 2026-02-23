@@ -41,7 +41,7 @@ if [[ "$1" == "--team" ]]; then
 
     TEAM_INFO=$(api GET "/team/info?team_id=${TEAM_ID}")
     TEAM_ALIAS=$(echo "$TEAM_INFO" | jq -r '.team_info.team_alias // .team_alias // "unnamed"')
-    MEMBERS=$(echo "$TEAM_INFO" | jq -r '.members_with_roles[]? | .user_id // empty')
+    MEMBERS=$(echo "$TEAM_INFO" | jq -r '.team_info.members_with_roles[]? | select(.user_id != "default_user_id") | .user_id // empty')
     MEMBER_COUNT=$([[ -n "$MEMBERS" ]] && echo "$MEMBERS" | wc -l | tr -d ' ' || echo 0)
 
     echo "Team: $TEAM_ALIAS ($TEAM_ID)"
