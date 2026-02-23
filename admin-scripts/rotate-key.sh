@@ -1,6 +1,6 @@
 #!/bin/bash
 # Usage: ./rotate-key.sh <user_id>
-# Deletes all existing keys, generates a new one on the same team
+# Lists keys, lets you pick which to rotate
 set -e
 
 [[ -z "$LITELLM_API_BASE" ]] && read -p "LiteLLM URL: " LITELLM_API_BASE
@@ -16,28 +16,47 @@ INFO=$(api GET "/user/info?user_id=${USER_ID}")
 EMAIL=$(echo "$INFO" | jq -r '.user_info.user_email // .user_email // empty')
 [[ -z "$EMAIL" ]] && echo "User '$USER_ID' not found." && exit 1
 
-KEYS=$(echo "$INFO" | jq -r '.keys[]? | .token // empty')
-KEY_COUNT=$([[ -n "$KEYS" ]] && echo "$KEYS" | wc -l | tr -d ' ' || echo 0)
-TEAM_ID=$(echo "$INFO" | jq -r '.keys[0]?.team_id // empty')
-OLD_ALIAS=$(echo "$INFO" | jq -r '.keys[0]?.key_alias // empty')
-KEY_ALIAS=${OLD_ALIAS:-"${USER_ID}-key"}
+KEY_COUNT=$(echo "$INFO" | jq '.keys | length')
+[[ "$KEY_COUNT" -eq 0 ]] && echo "User '$USER_ID' has no keys." && exit 1
 
-echo "User:  $USER_ID ($EMAIL)"
-echo "Keys:  $KEY_COUNT"
-echo "Team:  $TEAM_ID"
+echo "User: $USER_ID ($EMAIL)"
 echo ""
+echo "Keys:"
+i=1; declare -a TOKENS ALIASES TEAMS
+while IFS= read -r line; do
+    token=$(echo "$line" | jq -r '.token')
+    alias=$(echo "$line" | jq -r '.key_alias // "unnamed"')
+    team=$(echo "$line" | jq -r '.team_id // "no team"')
+    TOKENS+=("$token"); ALIASES+=("$alias"); TEAMS+=("$team")
+    echo "  $i) $alias  (team: $team)"
+    ((i++))
+done < <(echo "$INFO" | jq -c '.keys[]?')
+echo "  a) All keys"
+echo ""
+read -p "Which key to rotate (number or 'a'): " SELECTION
 
-[[ -z "$TEAM_ID" ]] && echo "No team-attributed key found. Can't rotate without a team." && exit 1
+declare -a TO_DELETE
+if [[ "$SELECTION" == "a" ]]; then
+    for idx in $(seq 0 $((${#TOKENS[@]}-1))); do
+        TO_DELETE+=("$idx")
+    done
+    TEAM_ID="${TEAMS[0]}"
+    KEY_ALIAS="${ALIASES[0]}"
+else
+    idx=$((SELECTION - 1))
+    [[ $idx -lt 0 || $idx -ge ${#TOKENS[@]} ]] && echo "Invalid selection." && exit 1
+    TO_DELETE+=("$idx")
+    TEAM_ID="${TEAMS[$idx]}"
+    KEY_ALIAS="${ALIASES[$idx]}"
+fi
 
-read -p "Rotate keys for $USER_ID? (y/n): " CONFIRM
-[[ "$CONFIRM" != "y" ]] && echo "Aborted." && exit 0
+[[ -z "$TEAM_ID" || "$TEAM_ID" == "no team" ]] && echo "Selected key has no team. Can't rotate." && exit 1
 
 echo ""
-echo "[1/2] Deleting old keys..."
-for key in $KEYS; do
-    alias=$(echo "$INFO" | jq -r ".keys[] | select(.token==\"$key\") | .key_alias // \"unnamed\"")
-    api POST "/key/delete" "{\"keys\":[\"$key\"]}" >/dev/null 2>&1
-    echo "  Deleted: $alias"
+echo "[1/2] Deleting selected keys..."
+for idx in "${TO_DELETE[@]}"; do
+    api POST "/key/delete" "{\"keys\":[\"${TOKENS[$idx]}\"]}" >/dev/null 2>&1
+    echo "  Deleted: ${ALIASES[$idx]}"
 done
 
 echo "[2/2] Generating new key: $KEY_ALIAS"
@@ -46,4 +65,4 @@ KEY=$(api POST "/key/generate" "{\"user_id\":\"$USER_ID\",\"team_id\":\"$TEAM_ID
 
 echo ""
 echo "Done! User: $USER_ID | Key: $KEY"
-echo "Send the new API key securely. Old keys are now invalid."
+echo "Send the new API key securely. Old key(s) are now invalid."
