@@ -1,5 +1,5 @@
 #!/bin/bash
-# Usage: ./spend-report.sh [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--team <team>]
+# Usage: ./spend-report.sh [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--team <team>] [--csv]
 # Generates a cost attribution report per team and per user
 set -e
 
@@ -18,23 +18,23 @@ resolve_team() {
 START=$(date -u +"%Y-%m-01")
 END=$(date -u +"%Y-%m-%d")
 FILTER_TEAM=""
+CSV=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --start) START="$2"; shift 2 ;;
         --end) END="$2"; shift 2 ;;
         --team) FILTER_TEAM="$2"; shift 2 ;;
-        *) echo "Usage: $0 [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--team <team>]"; exit 1 ;;
+        --csv) CSV=true; shift ;;
+        *) echo "Usage: $0 [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--team <team>] [--csv]"; exit 1 ;;
     esac
 done
 
-echo "LiteLLM Spend Report"
-echo "Period: $START to $END"
-echo "========================================"
-echo ""
-
 TEAMS=$(api GET "/team/list")
 TOTAL_SPEND=0
+
+$CSV && echo "team,user_id,email,spend_usd,requests,prompt_tokens,completion_tokens,top_model"
+$CSV || { echo "LiteLLM Spend Report"; echo "Period: $START to $END"; echo "========================================"; echo ""; }
 
 process_team() {
     local tid="$1"
@@ -46,7 +46,7 @@ process_team() {
 
     [[ -z "$MEMBERS" ]] && return
 
-    printf "=== Team: %s (\$%.2f) ===\n" "$talias" "$tspend"
+    $CSV || printf "=== Team: %s (\$%.2f) ===\n" "$talias" "$tspend"
 
     while IFS= read -r uid; do
         [[ -z "$uid" ]] && continue
@@ -62,11 +62,16 @@ process_team() {
         USER_INFO=$(api GET "/user/info?user_id=${uid}")
         EMAIL=$(echo "$USER_INFO" | jq -r '.user_info.user_email // "no email"')
 
-        printf "  %-20s \$%8.2f  %6d reqs  %8d prompt  %8d completion  Top: %s\n" \
-            "$uid" "$USER_SPEND" "$USER_REQS" "$USER_PROMPT" "$USER_COMPLETION" "$TOP_MODEL"
+        if $CSV; then
+            printf "%s,%s,%s,%.2f,%d,%d,%d,%s\n" \
+                "$talias" "$uid" "$EMAIL" "$USER_SPEND" "$USER_REQS" "$USER_PROMPT" "$USER_COMPLETION" "$TOP_MODEL"
+        else
+            printf "  %-20s \$%8.2f  %6d reqs  %8d prompt  %8d completion  Top: %s\n" \
+                "$uid" "$USER_SPEND" "$USER_REQS" "$USER_PROMPT" "$USER_COMPLETION" "$TOP_MODEL"
+        fi
     done <<< "$MEMBERS"
 
-    echo ""
+    $CSV || echo ""
 }
 
 if [[ -n "$FILTER_TEAM" ]]; then
@@ -84,6 +89,5 @@ else
         TOTAL_SPEND=$(echo "$TOTAL_SPEND + $TSPEND" | bc 2>/dev/null || echo "$TOTAL_SPEND")
     done < <(echo "$TEAMS" | jq -c '.[]')
 
-    echo "========================================"
-    printf "Total: \$%.2f\n" "$TOTAL_SPEND"
+    $CSV || { echo "========================================"; printf "Total: \$%.2f\n" "$TOTAL_SPEND"; }
 fi
