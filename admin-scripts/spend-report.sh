@@ -36,8 +36,12 @@ LOGS=$(api GET "/spend/logs?start_date=${START}&end_date=${END}&summarize=false"
 # Get team list for aliases
 TEAMS=$(api GET "/team/list")
 
-$CSV && echo "team,user_id,email,spend_usd,requests,prompt_tokens,completion_tokens,top_model"
-$CSV || { echo "LiteLLM Spend Report"; echo "Period: $START to $END"; echo "========================================"; echo ""; }
+if $CSV; then
+    CSV_FILE="spend-report_${START}_to_${END}.csv"
+    echo "team,user_id,email,spend_usd,requests,prompt_tokens,completion_tokens,top_model" > "$CSV_FILE"
+else
+    echo "LiteLLM Spend Report"; echo "Period: $START to $END"; echo "========================================"; echo ""
+fi
 
 TOTAL_SPEND=0
 
@@ -68,7 +72,7 @@ process_team() {
 
         if $CSV; then
             printf "%s,%s,%s,%.2f,%d,%d,%d,%s\n" \
-                "$talias" "$uid" "$EMAIL" "$USER_SPEND" "$USER_REQS" "$USER_PROMPT" "$USER_COMPLETION" "$TOP_MODEL"
+                "$talias" "$uid" "$EMAIL" "$USER_SPEND" "$USER_REQS" "$USER_PROMPT" "$USER_COMPLETION" "$TOP_MODEL" >> "$CSV_FILE"
         else
             printf "  %-20s %-30s \$%8.2f  %6d reqs  %8d prompt  %8d completion  Top: %s\n" \
                 "$uid" "$EMAIL" "$USER_SPEND" "$USER_REQS" "$USER_PROMPT" "$USER_COMPLETION" "$TOP_MODEL"
@@ -93,3 +97,5 @@ else
 
     $CSV || { echo "========================================"; printf "Total: \$%.2f\n" "$TOTAL_SPEND"; }
 fi
+
+$CSV && echo "Saved: $CSV_FILE ($(wc -l < "$CSV_FILE") rows)"
