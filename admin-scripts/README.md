@@ -21,6 +21,8 @@ Standalone bash scripts for managing LiteLLM users, keys, and teams.
 | `update-team-models.sh` | `./update-team-models.sh <team>` (no args = list teams) |
 | `bulk-onboard.sh` | `./bulk-onboard.sh <csv_file>` |
 | `bulk-offboard.sh` | `./bulk-offboard.sh <file>` or `./bulk-offboard.sh --team <team>` |
+| `spend-report.sh` | `./spend-report.sh [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--team <team>] [--csv]` |
+| `set-team-key-budgets.sh` | `./set-team-key-budgets.sh <team> <max_budget_usd> [budget_duration]` |
 
 **Roles:** `proxy_admin`, `proxy_admin_viewer`, `internal_user`, `internal_user_viewer`
 
