@@ -1267,10 +1267,7 @@
         "label": "Team",
         "multi": false,
         "name": "team",
-        "query": {
-          "rawSql": "SELECT team_id AS __value, COALESCE(team_alias, team_id) AS __text FROM \"LiteLLM_TeamTable\" ORDER BY team_alias",
-          "format": "table"
-        },
+        "query": "SELECT team_id AS __value, COALESCE(team_alias, team_id) AS __text FROM \"LiteLLM_TeamTable\" ORDER BY team_alias",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
