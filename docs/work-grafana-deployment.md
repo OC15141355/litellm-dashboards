@@ -4,6 +4,106 @@ Standalone Grafana instance for LiteLLM cost attribution dashboards. Deployed vi
 
 ---
 
+## Quick Test — Use Rancher's Existing Grafana
+
+Before deploying a standalone Grafana, test the dashboard on the existing Rancher Monitoring Grafana (`cattle-monitoring-system`). This validates the datasource connection and dashboard without any Terraform.
+
+### Step 1: Create the `grafana_reader` role on RDS
+
+Open your SSH tunnel to the bastion:
+
+```bash
+ssh -L 5432:db1.dev.work.com:5432 rocky@lp-devops-bastion.dev.work.com -i ~/Documents/dev.pem
+```
+
+Connect via DBeaver (localhost:5432, admin user) and run:
+
+```sql
+CREATE ROLE grafana_reader WITH LOGIN PASSWORD '<generate-secure-password>';
+GRANT CONNECT ON DATABASE <litellm_db> TO grafana_reader;
+GRANT USAGE ON SCHEMA public TO grafana_reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO grafana_reader;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO grafana_reader;
+```
+
+Save the password — you'll need it in the next step.
+
+### Step 2: Push PostgreSQL datasource ConfigMap
+
+Create a file `litellm-postgres-datasource.yaml`:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-postgres-datasource
+  namespace: cattle-monitoring-system
+  labels:
+    grafana_datasource: "1"
+data:
+  litellm-postgres.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: LiteLLM PostgreSQL
+        type: postgres
+        access: proxy
+        url: <rds-endpoint>:5432
+        database: <litellm_db>
+        user: grafana_reader
+        secureJsonData:
+          password: <grafana_reader-password>
+        jsonData:
+          sslmode: require
+          postgresVersion: 1500
+```
+
+> **Note:** For this quick test, the password is inline in the ConfigMap. This is fine for testing — the standalone deployment (below) uses Secrets Manager + env var injection instead.
+
+```bash
+kubectl apply -f litellm-postgres-datasource.yaml
+```
+
+The Grafana sidecar watches for ConfigMaps with `grafana_datasource: "1"` and auto-loads them. No pod restart needed.
+
+### Step 3: Push dashboard ConfigMap
+
+```bash
+kubectl create configmap litellm-cost-dashboard \
+  --from-file=litellm-cost-attribution.json=grafana/litellm-postgres-dashboard.json \
+  -n cattle-monitoring-system
+
+kubectl label configmap litellm-cost-dashboard \
+  grafana_dashboard="1" \
+  -n cattle-monitoring-system
+```
+
+### Step 4: Verify
+
+1. Open Rancher Grafana (Cluster Explorer → Monitoring → Grafana)
+2. Go to Configuration → Data Sources — verify "LiteLLM PostgreSQL" shows a green checkmark
+3. Go to Dashboards → Browse — find "LiteLLM Cost Attribution"
+4. Check that panels show data (Total Spend, Requests, etc.)
+5. Test a team-filtered URL: append `?var-team=<team_id>` to the dashboard URL
+
+### Cleanup
+
+When you're done testing (or after the standalone Grafana is deployed), remove the test ConfigMaps:
+
+```bash
+kubectl delete configmap litellm-postgres-datasource -n cattle-monitoring-system
+kubectl delete configmap litellm-cost-dashboard -n cattle-monitoring-system
+```
+
+This immediately removes the datasource and dashboard from Rancher's Grafana. No restart needed — the sidecar handles it.
+
+---
+
+## Standalone Deployment (Terraform + Keycloak SSO)
+
+Once you've validated the dashboard works with real data, follow the steps below to deploy a dedicated Grafana instance with Keycloak SSO and proper secrets management.
+
+---
+
 ## Why a Separate Grafana?
 
 Rancher Monitoring includes a Grafana (`cattle-monitoring-system`), but it's tightly coupled to Rancher's Prometheus stack and not ideal for team-facing dashboards. A standalone Grafana gives us:
