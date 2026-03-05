@@ -33,7 +33,7 @@
       },
       "id": 100,
       "panels": [],
-      "title": "${team:text} Overview",
+      "title": "${team_name} Overview",
       "type": "row"
     },
     {
@@ -672,7 +672,7 @@
       },
       "id": 102,
       "panels": [],
-      "title": "${team:text} — Spend & Users",
+      "title": "${team_name} — Spend & Users",
       "type": "row"
     },
     {
@@ -1272,6 +1272,25 @@
         "regex": "",
         "skipUrlSync": false,
         "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${datasource}"
+        },
+        "definition": "SELECT COALESCE(team_alias, team_id) FROM \"LiteLLM_TeamTable\" WHERE team_id IN ($team)",
+        "hide": 2,
+        "includeAll": false,
+        "label": "",
+        "multi": false,
+        "name": "team_name",
+        "query": "SELECT COALESCE(team_alias, team_id) FROM \"LiteLLM_TeamTable\" WHERE team_id IN ($team)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": true,
+        "sort": 0,
         "type": "query"
       }
     ]
