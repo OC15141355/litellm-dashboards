@@ -33,7 +33,7 @@
       },
       "id": 100,
       "panels": [],
-      "title": "Overview",
+      "title": "${team:text} Overview",
       "type": "row"
     },
     {
@@ -672,7 +672,7 @@
       },
       "id": 102,
       "panels": [],
-      "title": "Team Overview",
+      "title": "${team:text} — Spend & Users",
       "type": "row"
     },
     {
@@ -1262,12 +1262,15 @@
           "uid": "${datasource}"
         },
         "definition": "SELECT team_id AS __value, COALESCE(team_alias, team_id) AS __text FROM \"LiteLLM_TeamTable\" ORDER BY team_alias",
-        "hide": 0,
+        "hide": 2,
         "includeAll": true,
         "label": "Team",
         "multi": false,
         "name": "team",
-        "query": "SELECT team_id AS __value, COALESCE(team_alias, team_id) AS __text FROM \"LiteLLM_TeamTable\" ORDER BY team_alias",
+        "query": {
+          "rawSql": "SELECT team_id AS __value, COALESCE(team_alias, team_id) AS __text FROM \"LiteLLM_TeamTable\" ORDER BY team_alias",
+          "format": "table"
+        },
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
