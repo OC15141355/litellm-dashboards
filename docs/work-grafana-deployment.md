@@ -20,20 +20,35 @@ Rancher Monitoring includes a Grafana (`cattle-monitoring-system`), but it's tig
 ```
 Team Lead (browser)
   → grafana.dev.example.com (Ingress)
-    → Grafana Pod (Helm chart)
+    → Grafana Pod (Helm chart, work-devops-tools namespace)
       → Keycloak OIDC (authentication)
       → RDS PostgreSQL (LiteLLM spend data, read-only)
 ```
+
+### Network Access — Why No SSH Tunnel?
+
+You access RDS from your laptop via an SSH tunnel through the bastion (`lp-devops-bastion.dev.work.com`). That's because your laptop is **outside** the VPC.
+
+Grafana doesn't need a tunnel. It runs as a pod **inside the same Kubernetes cluster** as LiteLLM, which already connects to RDS directly. The cluster has VPC-level network access to RDS — Grafana just uses the RDS endpoint as the datasource URL.
+
+```
+Your laptop (outside VPC)          K8s cluster (inside VPC)
+  → SSH tunnel → bastion → RDS      Grafana pod → RDS (direct)
+  (DBeaver, admin tasks)            (datasource, read-only)
+```
+
+The only time you use the bastion/SSH tunnel is for the one-time setup: creating the `grafana_reader` database role (step 3 below).
 
 ---
 
 ## Prerequisites
 
 1. **Keycloak** — existing realm with user accounts
-2. **RDS PostgreSQL** — LiteLLM database with spend data
+2. **RDS PostgreSQL** — LiteLLM database with spend data (accessible from cluster VPC)
 3. **Terraform repo** — with existing module structure (litellm, sourcegraph as reference)
 4. **DNS** — CNAME/A record for `grafana.dev.example.com` pointing to cluster ingress
 5. **TLS** — cert-manager or ACM certificate for the Grafana domain
+6. **Bastion access** — SSH tunnel to RDS for the one-time `grafana_reader` role creation
 
 ---
 
@@ -91,7 +106,18 @@ The Terraform module will pull these via `data.aws_secretsmanager_secret_version
 
 ## 3. RDS — Create Read-Only User
 
-Connect to the LiteLLM RDS instance as admin and create a read-only role:
+This is the only step that requires the bastion SSH tunnel. You need to connect to the LiteLLM RDS instance as admin and create a read-only role for Grafana.
+
+### Open SSH tunnel
+
+```bash
+# Terminal 1 — open the tunnel (keep this running)
+ssh -L 5432:db1.dev.work.com:5432 rocky@lp-devops-bastion.dev.work.com -i ~/Documents/dev.pem
+```
+
+### Create the role
+
+Connect via DBeaver (or `psql` on `localhost:5432`) as the admin user, then run:
 
 ```sql
 CREATE ROLE grafana_reader WITH LOGIN PASSWORD '<grafana_pg_password>';
@@ -102,6 +128,20 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO grafana_read
 ```
 
 This user can only SELECT — no writes, no schema changes.
+
+### Verify (optional)
+
+Still through DBeaver/tunnel, test the new role:
+
+```sql
+-- Connect as grafana_reader
+SELECT COUNT(*) FROM "LiteLLM_DailyTeamSpend";   -- should return a number
+INSERT INTO "LiteLLM_DailyTeamSpend" (team_id) VALUES ('test');  -- should FAIL (permission denied)
+```
+
+### Store the password
+
+Add `grafana_pg_password` to AWS Secrets Manager (step 2 above). This is the same password you used in `CREATE ROLE`. After this, you won't need the bastion tunnel again — Grafana connects from inside the VPC.
 
 ---
 
@@ -214,6 +254,14 @@ Created via `kubernetes_secret_v1` resource in Terraform, values sourced from `d
 
 ## 5. PostgreSQL Datasource (Sidecar ConfigMap)
 
+The datasource URL is the **RDS endpoint** — NOT `localhost` or a tunnel. Grafana runs inside the cluster VPC and connects to RDS directly. You can find the endpoint via:
+
+```bash
+aws rds describe-db-instances --query 'DBInstances[*].[DBInstanceIdentifier,Endpoint.Address]' --output table
+```
+
+Or grab the host portion from the `DATABASE_URL` in the LiteLLM Secrets Manager entry — it's the same RDS instance.
+
 ```yaml
 apiVersion: v1
 kind: ConfigMap
@@ -239,7 +287,7 @@ data:
           postgresVersion: 1500
 ```
 
-The `$GRAFANA_PG_PASSWORD` env var is injected via `envFromSecrets` in the Helm values.
+The `$GRAFANA_PG_PASSWORD` env var is injected via `envFromSecrets` in the Helm values (see step 4). Grafana substitutes it at startup.
 
 Deploy this ConfigMap via Terraform (`kubernetes_config_map_v1`) or include in the Helm values under `datasources`.
 
