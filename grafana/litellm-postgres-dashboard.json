@@ -70,7 +70,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 3,
         "x": 0,
         "y": 1
       },
@@ -140,7 +140,7 @@
       "gridPos": {
         "h": 4,
         "w": 3,
-        "x": 4,
+        "x": 3,
         "y": 1
       },
       "id": 14,
@@ -201,7 +201,7 @@
       "gridPos": {
         "h": 4,
         "w": 3,
-        "x": 7,
+        "x": 6,
         "y": 1
       },
       "id": 2,
@@ -262,8 +262,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 10,
+        "w": 3,
+        "x": 9,
         "y": 1
       },
       "id": 15,
@@ -324,7 +324,7 @@
       "gridPos": {
         "h": 4,
         "w": 3,
-        "x": 14,
+        "x": 12,
         "y": 1
       },
       "id": 3,
@@ -392,8 +392,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 17,
+        "w": 3,
+        "x": 15,
         "y": 1
       },
       "id": 4,
@@ -462,7 +462,7 @@
       "gridPos": {
         "h": 4,
         "w": 3,
-        "x": 21,
+        "x": 18,
         "y": 1
       },
       "id": 16,
@@ -492,6 +492,86 @@
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT\n  COALESCE(SUM(t.max_budget), 0) - COALESCE(SUM(d.spend), 0) AS remaining\nFROM \"LiteLLM_TeamTable\" t\nLEFT JOIN \"LiteLLM_DailyTeamSpend\" d\n  ON d.team_id = t.team_id\n  AND d.date::timestamp >= $__timeFrom()\n  AND d.date::timestamp <= $__timeTo()\nWHERE t.team_id IN ($team)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "No Reset",
+                  "color": "text"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 3
+              },
+              {
+                "color": "green",
+                "value": 7
+              }
+            ]
+          },
+          "unit": "d"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 21,
+        "y": 1
+      },
+      "id": 17,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Budget Resets In",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  CASE WHEN MAX(budget_reset_at) IS NOT NULL\n    THEN EXTRACT(EPOCH FROM MAX(budget_reset_at) - NOW()) / 86400.0\n    ELSE NULL END AS days_until_reset\nFROM \"LiteLLM_TeamTable\"\nWHERE team_id IN ($team)\n  AND budget_reset_at IS NOT NULL",
           "refId": "A"
         }
       ]
@@ -561,7 +641,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 16,
+        "w": 12,
         "x": 0,
         "y": 6
       },
@@ -619,8 +699,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 16,
+        "w": 6,
+        "x": 12,
         "y": 6
       },
       "id": 6,
@@ -663,6 +743,110 @@
       ]
     },
     {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            }
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Input Tokens"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Output Tokens"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 6
+      },
+      "id": 18,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "title": "Token Usage (Input vs Output)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  date::timestamp AS time,\n  SUM(prompt_tokens) AS \"Input Tokens\",\n  SUM(completion_tokens) AS \"Output Tokens\"\nFROM \"LiteLLM_DailyTeamSpend\"\nWHERE date::timestamp >= $__timeFrom()\n  AND date::timestamp <= $__timeTo()\n  AND team_id IN ($team)\nGROUP BY date\nORDER BY date",
+          "refId": "A"
+        }
+      ]
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -672,7 +856,7 @@
       },
       "id": 102,
       "panels": [],
-      "title": "${team_name} — Spend & Users",
+      "title": "${team_name} \u2014 Spend & Users",
       "type": "row"
     },
     {
@@ -727,7 +911,7 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 24,
+        "w": 14,
         "x": 0,
         "y": 15
       },
@@ -757,6 +941,135 @@
           "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT\n  d.date::timestamp AS time,\n  COALESCE(u.user_email, d.user_id, 'unknown') AS metric,\n  SUM(d.spend) AS value\nFROM \"LiteLLM_DailyUserSpend\" d\nLEFT JOIN \"LiteLLM_UserTable\" u ON d.user_id = u.user_id\nWHERE d.date::timestamp >= $__timeFrom()\n  AND d.date::timestamp <= $__timeTo()\n  AND d.api_key IN (\n    SELECT token FROM \"LiteLLM_VerificationToken\" WHERE team_id IN ($team)\n  )\nGROUP BY d.date, COALESCE(u.user_email, d.user_id, 'unknown')\nORDER BY d.date",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "scheme",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Budget Limit"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cumulative Spend"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 15
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 10,
+        "x": 14,
+        "y": 15
+      },
+      "id": 19,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "title": "Spend vs Budget",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  d.date::timestamp AS time,\n  SUM(SUM(d.spend)) OVER (ORDER BY d.date) AS \"Cumulative Spend\",\n  MAX(t.max_budget) AS \"Budget Limit\"\nFROM \"LiteLLM_DailyTeamSpend\" d\nJOIN \"LiteLLM_TeamTable\" t ON d.team_id = t.team_id\nWHERE d.date::timestamp >= $__timeFrom()\n  AND d.date::timestamp <= $__timeTo()\n  AND d.team_id IN ($team)\nGROUP BY d.date\nORDER BY d.date",
           "refId": "A"
         }
       ]
