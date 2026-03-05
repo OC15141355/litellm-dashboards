@@ -4,11 +4,18 @@ Pre-built Grafana dashboards for monitoring [LiteLLM](https://github.com/BerriAI
 
 ## Dashboards
 
-| Dashboard | File | Audience | Purpose |
-|-----------|------|----------|---------|
-| **Operations & FinOps** | `grafana-dashboard.json` | Platform team | Overall system health, costs, budgets |
-| **Team View** | `grafana-dashboard-team.json` | Team leads | Per-team spend, usage, performance |
-| **Model Comparison** | `grafana-dashboard-models.json` | Developers | Compare models on cost, latency, reliability |
+| Dashboard | File | Data Source | Audience | Purpose |
+|-----------|------|-------------|----------|---------|
+| **Operations & FinOps** | `grafana-dashboard.json` | Prometheus | Platform team | System health, real-time metrics, alerting |
+| **Team View** | `grafana-dashboard-team.json` | Prometheus | Team leads | Per-team spend, usage, performance |
+| **Model Comparison** | `grafana-dashboard-models.json` | Prometheus | Developers | Compare models on cost, latency, reliability |
+| **Cost Attribution** | `grafana/litellm-postgres-dashboard.json` | PostgreSQL | Team leads | Historical spend, user budgets, chargebacks |
+
+### Prometheus vs PostgreSQL Dashboards
+
+The **Prometheus dashboards** (Operations, Team View, Model Comparison) are best for real-time monitoring and alerting. Counters reset on pod restart.
+
+The **PostgreSQL dashboard** (Cost Attribution) reads directly from LiteLLM's database tables. Numbers always match the LiteLLM UI, survive restarts, and are accurate for finance reporting. See [`docs/grafana-setup.md`](docs/grafana-setup.md) for setup and team-scoped access.
 
 ## Admin Scripts
 

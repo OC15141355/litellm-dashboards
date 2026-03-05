@@ -25,19 +25,22 @@ The LiteLLM UI reads from PostgreSQL. This dashboard reads from the same tables,
 
 | Section | Panels | Data Source Table |
 |---------|--------|-------------------|
-| **Overview** | Total Spend, Requests, Tokens, Success Rate | `LiteLLM_DailyTeamSpend` |
+| **Overview** | Total Spend, vs Previous Period (%), Total Requests, Avg Cost/Request, Total Tokens, Success Rate, Budget Remaining | `LiteLLM_DailyTeamSpend` + `LiteLLM_TeamTable` |
 | **Spend Over Time** | Daily Spend by Model (stacked bars), Spend by Model (donut) | `LiteLLM_DailyTeamSpend` |
-| **Team Breakdown** | Spend by Team (bar), Budget vs Actual (table with gauge) | `LiteLLM_DailyTeamSpend` + `LiteLLM_TeamTable` |
-| **User Breakdown** | Daily Spend by User (stacked bars), User Activity (table) | `LiteLLM_DailyUserSpend` + `LiteLLM_UserTable` |
-| **Request Analysis** | Daily Requests by Model, Daily Tokens by Model | `LiteLLM_DailyTeamSpend` |
+| **Team Overview** | Daily Spend by User (stacked bars), User Spend & Budget (table with usage gauge) | `LiteLLM_DailyUserSpend` + `LiteLLM_UserTable` |
+| **Request Analysis** | Daily Requests by Model, Daily Tokens by Model (collapsed) | `LiteLLM_DailyTeamSpend` |
 | **Raw Logs** | Recent Requests drill-down (collapsed) | `LiteLLM_SpendLogs` |
+
+The dashboard is designed for **team leads**, not admins. The default view shows per-user spend trends and budget tracking. Admin-level views (all teams, operations metrics) are covered by the Prometheus-based dashboards.
 
 ### Variables
 
-| Variable | Purpose |
-|----------|---------|
-| `datasource` | PostgreSQL datasource selector (portability between environments) |
-| `team` | Team filter — dropdown populated from `LiteLLM_TeamTable`. "All Teams" shows everything. |
+| Variable | Type | Purpose |
+|----------|------|---------|
+| `datasource` | Datasource | PostgreSQL datasource selector (portability between environments) |
+| `team` | Query | Team filter — dropdown populated from `LiteLLM_TeamTable`. "All" shows all teams. Single-select with `IN ($team)` for Grafana 12 compatibility. |
+
+> **Grafana 12 note:** The PostgreSQL backend plugin does not interpolate dashboard variables inside SQL string literals (`'$var'`). All queries use `column IN ($team)` instead. Grafana handles the quoting automatically.
 
 ---
 
@@ -165,68 +168,89 @@ Dashboard should appear in Grafana under **Dashboards → Browse → LiteLLM Cos
 
 LiteLLM SSO/RBAC requires an enterprise license. Instead, control access at the **Grafana layer**.
 
-### Option A: Grafana Folders + Local Users (Recommended)
+> **Note on `${__user.email}`:** Grafana 12's PostgreSQL backend plugin does **not** interpolate built-in `${__user.*}` variables in SQL queries. Auto-filtering the `$team` dropdown based on the logged-in user's identity is not possible with the PostgreSQL datasource. The options below work around this limitation.
 
-Best for: controlled access, team leads see only their team.
+### Option A: Bookmarked Team URLs (Recommended)
+
+Best for: quick setup, low maintenance, trust-based isolation.
+
+**How it works:** Each team lead gets a pre-filtered dashboard URL with their team_id baked in. They land directly on their team's view.
+
+**Setup:**
+
+1. **Get each team's ID** from LiteLLM:
+   ```bash
+   curl -s "$LITELLM_URL/team/list" -H "Authorization: Bearer $MASTER_KEY" | \
+     jq -r '.[] | "\(.team_id)\t\(.team_alias)"'
+   ```
+
+2. **Generate team-specific URLs:**
+   ```
+   https://grafana.example.com/d/litellm-cost-attribution?var-team=<team_id>
+   ```
+
+3. **Distribute URLs** — include in onboarding, pin in team Slack channels, or add to internal wiki.
+
+4. **Optional: Create Grafana users** with Viewer role for team leads. This prevents anonymous access and gives basic audit trail.
+
+**Pros:** Zero Grafana config beyond user accounts. Works with any auth method.
+**Cons:** Team leads can change the URL to see other teams (soft isolation). Acceptable when there's no competitive reason to snoop.
+
+**Integration with onboarding script:**
+
+Add to your onboard script output:
+```bash
+echo "Dashboard URL: https://grafana.example.com/d/litellm-cost-attribution?var-team=${TEAM_ID}"
+```
+
+### Option B: Grafana Folders + Hidden Variable
+
+Best for: hard isolation, team leads cannot see other teams.
 
 **Setup:**
 
 1. **Create Grafana folders** — one per team:
-   - `LiteLLM — Engineering`
-   - `LiteLLM — Data Science`
-   - etc.
+   - `LiteLLM — Platform Engineering`
+   - `LiteLLM — Backend`
 
-2. **Deploy team-specific dashboards** — import the same dashboard JSON into each folder, but set the `team` variable default to that team's `team_id` and hide the variable:
+2. **Import the dashboard into each folder** with a locked team filter:
    - Edit dashboard → Settings → Variables → `team`
-   - Set **Default** to the team's UUID
-   - Set **Hide** to "Variable" (hides the dropdown)
-   - Save
+   - Set **Default** to the team's `team_id`
+   - Set **Hide** to "Variable" (hides the dropdown entirely)
+   - Save as a new dashboard in the team's folder
 
-3. **Create Grafana users** for team leads:
-   - Admin → Users → New user
-   - Username: their email
-   - Role: Viewer
-
-4. **Set folder permissions**:
-   - Folder → Permissions → remove default permissions
+3. **Set folder permissions**:
+   - Folder → Permissions → remove default org-level access
    - Add the team lead as Viewer on their folder only
-   - Admin retains access to all folders
 
-**Result:** Team lead logs into Grafana, sees only their folder with their team's spend dashboard. No team variable to change, no access to other teams.
-
-### Option B: Public Dashboard Links
-
-Best for: simplest setup, internal network only.
-
-1. Open the dashboard filtered to a specific team
-2. Dashboard → Share → Public Dashboard → Enable
-3. Copy the public link
-4. Send to the team lead
-
-**Pros:** No Grafana accounts needed, just a URL.
-**Cons:** Anyone with the link can view. Only use on internal/VPN networks.
+**Pros:** True isolation — team leads cannot see other teams' data.
+**Cons:** One dashboard copy per team. When updating the dashboard, you must re-import to each folder (or script it).
 
 ### Option C: Postgres Row-Level Security
 
-Best for: maximum security, larger deployments.
+Best for: maximum security, regulated environments.
 
 1. Create a Postgres role per team
-2. Enable RLS on the daily spend tables
-3. Create policies: `CREATE POLICY team_isolation ON "LiteLLM_DailyTeamSpend" FOR SELECT USING (team_id = current_setting('app.team_id'))`
-4. Create a Grafana datasource per team, each connecting as their role
+2. Enable RLS on the daily spend tables:
+   ```sql
+   ALTER TABLE "LiteLLM_DailyTeamSpend" ENABLE ROW LEVEL SECURITY;
+   CREATE POLICY team_isolation ON "LiteLLM_DailyTeamSpend"
+     FOR SELECT USING (team_id = current_setting('app.team_id'));
+   ```
+3. Create a Grafana datasource per team, each connecting as their role with `SET app.team_id` in the connection init
 
 **Pros:** Database-level isolation, impossible to bypass.
-**Cons:** Highest setup/maintenance overhead.
+**Cons:** Highest setup/maintenance overhead. One datasource per team in Grafana.
 
 ### Comparison
 
-| Approach | Setup Effort | Security | Maintenance |
-|----------|-------------|----------|-------------|
-| Folders + Local Users | Low | Good — Grafana RBAC | Add user per team lead |
-| Public Links | Minimal | Low — link-based | Regenerate if compromised |
-| Postgres RLS | High | Strongest | DB role per team |
+| Approach | Setup Effort | Isolation | Maintenance | Best For |
+|----------|-------------|-----------|-------------|----------|
+| **Bookmarked URLs** | Minimal | Soft (trust-based) | None | Most teams, pilot phase |
+| Folders + Hidden Var | Medium | Hard (Grafana RBAC) | Re-import on updates | Strict access control |
+| Postgres RLS | High | Strongest (DB-level) | DB role per team | Regulated environments |
 
-**Recommendation:** Start with **Option A** (Folders + Local Users). It's the right balance of security and simplicity for a team of 3-10 leads.
+**Recommendation:** Start with **Option A** (Bookmarked URLs). It's zero-maintenance and works immediately. Move to Option B if teams request hard isolation.
 
 ---
 
