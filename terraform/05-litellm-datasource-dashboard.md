@@ -57,7 +57,7 @@ resource "kubernetes_secret_v1" "grafana_postgres" {
 }
 ```
 
-Pull the password from AWS Secrets Manager following the same pattern as other secrets in this repo.
+The password is stored in the existing `litellm-dev` AWS Secrets Manager entry under the key `grafana_pg_secret`. Pull it following the same pattern as the other LiteLLM secrets in this repo.
 
 **2. Inject the secret as an env var in Grafana:**
 
