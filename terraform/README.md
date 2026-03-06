@@ -1,6 +1,6 @@
-# Terraform Prompts
+# Terraform Prompts — External Access to Grafana Epic
 
-Claude Code prompts for work infrastructure changes. Each prompt is designed to be pasted into Claude Code on the work device with access to the Terraform repo.
+Claude Code prompts for work infrastructure changes. Each prompt maps to a ticket in the epic and is designed to be pasted into Claude Code on the work device with access to the Terraform repo.
 
 ## Workflow
 
@@ -14,5 +14,14 @@ Claude Code prompts for work infrastructure changes. Each prompt is designed to 
 | File | Ticket | Purpose |
 |------|--------|---------|
 | `01-gather-context.md` | Pre-work | Explore existing Terraform structure, understand patterns |
-| `02-rancher-monitoring-to-iac.md` | Deploy k8s monitoring as code | Move Rancher Monitoring Helm chart to Terraform |
-| `03-grafana-standalone.md` | Deploy standalone Grafana | New Grafana instance with Keycloak SSO + LiteLLM datasource |
+| `02-monitoring-to-iac.md` | Ticket 1 — Deploy k8s monitoring as code | Import existing Rancher Monitoring Helm release into Terraform |
+| `03-expose-grafana.md` | Ticket 2 — Expose Grafana for external access | Add ingress config to the monitoring Helm values |
+| `04-grafana-keycloak-sso.md` | Ticket 3 — Configure Grafana SSO | Add Keycloak OIDC auth to Grafana via Helm values |
+| `05-litellm-datasource-dashboard.md` | Post-epic | Add LiteLLM PostgreSQL datasource + cost attribution dashboard |
+
+## Notes
+
+- Tickets 2 and 3 are Helm value additions on top of ticket 1. They could be combined into one PR or done separately.
+- Prompt 05 (LiteLLM datasource + dashboard) can be done anytime after ticket 2 — doesn't require SSO.
+- All prompts assume the Terraform repo follows a modules + environments pattern. Prompt 01 validates this assumption.
+- The `grafana_reader` database role must be created manually on RDS before prompt 05 — see `docs/work-grafana-deployment.md` for instructions.

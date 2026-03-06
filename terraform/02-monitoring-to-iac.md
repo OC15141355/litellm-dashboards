@@ -1,6 +1,10 @@
-# Prompt 02 — Move Rancher Monitoring to Terraform
+# Prompt 02 — Ticket 1: Deploy Kubernetes Monitoring as Code
 
-Paste this into Claude Code after you've run `01-gather-context.md` and understand the repo structure. This prompt creates the actual module.
+**Epic:** External Access to Grafana
+**Ticket:** Deploy kubernetes monitoring helm as code
+**Description:** Current chart is deployed via the Rancher UI. This ticket will move to a code-based approach so it follows existing helm deployment processes.
+
+Paste this into Claude Code after you've run `01-gather-context.md` and understand the repo structure.
 
 ---
 
@@ -11,23 +15,24 @@ I need to move our existing Rancher Monitoring Helm deployment from the Rancher 
 ### Current state
 
 - Rancher Monitoring is deployed via the Rancher UI (Cluster Explorer → Apps → Monitoring)
-- It runs in `cattle-monitoring-system` namespace
+- It runs in the `cattle-monitoring-system` namespace
 - It deploys `rancher-monitoring` which is Rancher's fork of `kube-prometheus-stack`
 - Chart repo: Rancher's built-in chart repo (bundled with Rancher)
 - Current Helm values were set through the Rancher UI — we need to capture them first
+- This deployment includes Prometheus, Grafana, Alertmanager, and related components
 
 ### Step 1: Capture current Helm values
 
-Before writing any Terraform, I need to know what's currently deployed. Run these commands and show me the output:
+Before writing any Terraform, I need to know what's currently deployed. Run these commands and show me the full output:
 
 ```bash
-# Get the current chart version
+# Get the current chart version and status
 helm list -n cattle-monitoring-system
 
-# Get the current values (this is critical — these are the UI-configured values)
+# Get the current user-configured values (critical — these are what the Rancher UI set)
 helm get values rancher-monitoring -n cattle-monitoring-system -o yaml
 
-# Get the chart metadata
+# Get the chart metadata (tells us chart repo source)
 helm get metadata rancher-monitoring -n cattle-monitoring-system
 ```
 
@@ -35,7 +40,7 @@ Show me the full output of all three commands. Do NOT proceed to write the modul
 
 ### Step 2: Create the Terraform module
 
-Once I've confirmed the values, create `modules/monitoring/` following the same patterns as the other modules in this repo:
+Once I've confirmed the values, create the monitoring module following the same patterns as the other modules in this repo:
 
 - `main.tf` — Helm release resource for `rancher-monitoring`
 - `variables.tf` — Input variables (chart version, namespace, values overrides)
@@ -43,7 +48,7 @@ Once I've confirmed the values, create `modules/monitoring/` following the same 
 
 **Important considerations:**
 
-1. **Chart source**: Rancher bundles its monitoring chart. Check how Rancher exposes the chart repo — it may be an in-cluster chart repo URL like `https://charts.rancher.io` or it may be an OCI reference. The `helm get metadata` output will tell us.
+1. **Chart source**: Rancher bundles its monitoring chart. Check how Rancher exposes the chart repo — it may be an in-cluster chart repo URL like `https://charts.rancher.io` or an OCI reference. The `helm get metadata` output will tell us.
 
 2. **Existing state**: We're importing an existing deployment, NOT creating a new one. The Terraform module must match the current state exactly so that `terraform plan` shows no changes on first run. After import, we iterate.
 
@@ -62,8 +67,8 @@ After writing the module, give me the exact commands to:
 
 ### What NOT to do
 
-- Do NOT change any values from what's currently deployed — this is a lift-and-shift
-- Do NOT add new monitoring features or dashboards yet — that comes later
+- Do NOT change any values from what's currently deployed — this is a lift-and-shift only
+- Do NOT add ingress, SSO, or any new features — those are separate tickets
 - Do NOT remove anything from the Rancher UI deployment — we import first, then Terraform owns it
 - Do NOT create a new Helm release — we are importing the existing one
 
