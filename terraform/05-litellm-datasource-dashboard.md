@@ -134,10 +134,8 @@ Copy the dashboard JSON into the module directory:
 
 ```bash
 mkdir -p modules/monitoring/dashboards
-cp /path/to/litellm-dashboards/grafana/litellm-postgres-dashboard.json modules/monitoring/dashboards/litellm-cost-attribution.json
+cp ~/Documents/dashboards/litellm-postgres-dashboard.json modules/monitoring/dashboards/litellm-cost-attribution.json
 ```
-
-The source file is in the `litellm-dashboards` repo at `grafana/litellm-postgres-dashboard.json`.
 
 ### Variables
 
