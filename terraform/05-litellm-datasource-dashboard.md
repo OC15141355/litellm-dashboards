@@ -13,8 +13,33 @@ Grafana is deployed via Terraform and accessible externally. I now need to add a
 
 - LiteLLM runs in this cluster and stores spend/usage data in an RDS PostgreSQL instance
 - A read-only database user `grafana_reader` has already been created on the RDS instance
-- The dashboard JSON is pre-built and tested — I'll provide it
-- Grafana's sidecar is enabled and watches for ConfigMaps with `grafana_datasource: "1"` and `grafana_dashboard: "1"` labels
+- The dashboard JSON is pre-built and tested — it's in this same repo at `grafana/litellm-postgres-dashboard.json`
+- Grafana's sidecar should be watching for ConfigMaps with `grafana_datasource: "1"` and `grafana_dashboard: "1"` labels — but verify this first (see pre-check below)
+
+### Pre-check: Verify sidecar is enabled
+
+Before adding ConfigMaps, confirm the Grafana sidecar is enabled in the current Helm values:
+
+```bash
+helm get values rancher-monitoring -n cattle-monitoring-system -o yaml | grep -A 10 sidecar
+```
+
+If the sidecar isn't enabled for dashboards or datasources, you'll need to add these to the monitoring Helm values:
+
+```yaml
+grafana:
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+    datasources:
+      enabled: true
+      label: grafana_datasource
+      labelValue: "1"
+```
+
+If it's already enabled (likely — Rancher Monitoring enables it by default), skip this and just add the ConfigMaps.
 
 ### What to add to the monitoring Terraform module
 
@@ -105,7 +130,14 @@ resource "kubernetes_config_map_v1" "grafana_litellm_dashboard" {
 }
 ```
 
-Copy the dashboard JSON file into the module directory at `modules/monitoring/dashboards/litellm-cost-attribution.json`. I'll provide the file.
+Copy the dashboard JSON into the module directory:
+
+```bash
+mkdir -p modules/monitoring/dashboards
+cp /path/to/litellm-dashboards/grafana/litellm-postgres-dashboard.json modules/monitoring/dashboards/litellm-cost-attribution.json
+```
+
+The source file is in the `litellm-dashboards` repo at `grafana/litellm-postgres-dashboard.json`.
 
 ### Variables
 

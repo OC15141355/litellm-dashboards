@@ -19,9 +19,15 @@ Claude Code prompts for work infrastructure changes. Each prompt maps to a ticke
 | `04-grafana-keycloak-sso.md` | Ticket 3 — Configure Grafana SSO | Add Keycloak OIDC auth to Grafana via Helm values |
 | `05-litellm-datasource-dashboard.md` | Post-epic | Add LiteLLM PostgreSQL datasource + cost attribution dashboard |
 
+## Recommended Order
+
+1. `01` → `02` → `03` (tickets 1-2, codify + expose)
+2. `05` (LiteLLM datasource + dashboard — validate data flows before adding SSO)
+3. `04` (Keycloak SSO — lock down access last)
+
 ## Notes
 
 - Tickets 2 and 3 are Helm value additions on top of ticket 1. They could be combined into one PR or done separately.
-- Prompt 05 (LiteLLM datasource + dashboard) can be done anytime after ticket 2 — doesn't require SSO.
+- Prompt 05 can be done anytime after ticket 2 — doesn't require SSO. Recommended before SSO so you can verify the dashboard works.
+- The `grafana_reader` database role must be created manually on RDS before prompt 05 — see `docs/work-grafana-deployment.md` for bastion/DBeaver instructions.
 - All prompts assume the Terraform repo follows a modules + environments pattern. Prompt 01 validates this assumption.
-- The `grafana_reader` database role must be created manually on RDS before prompt 05 — see `docs/work-grafana-deployment.md` for instructions.
