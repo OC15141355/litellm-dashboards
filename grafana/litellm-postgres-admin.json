@@ -491,7 +491,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  COALESCE(SUM(t.max_budget), 0) - COALESCE(SUM(d.spend), 0) AS remaining\nFROM \"LiteLLM_TeamTable\" t\nLEFT JOIN \"LiteLLM_DailyTeamSpend\" d\n  ON d.team_id = t.team_id\n  AND d.date::timestamp >= $__timeFrom()\n  AND d.date::timestamp <= $__timeTo()\nWHERE t.team_id IN ($team)",
+          "rawSql": "SELECT\n  COALESCE(MAX(t.max_budget), 0) - COALESCE(SUM(d.spend), 0) AS remaining\nFROM \"LiteLLM_TeamTable\" t\nLEFT JOIN \"LiteLLM_DailyTeamSpend\" d\n  ON d.team_id = t.team_id\n  AND d.date::timestamp >= $__timeFrom()\n  AND d.date::timestamp <= $__timeTo()\nWHERE t.team_id IN ($team)",
           "refId": "A"
         }
       ]
