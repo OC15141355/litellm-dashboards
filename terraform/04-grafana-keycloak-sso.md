@@ -36,14 +36,16 @@ These are already configured in Keycloak — do NOT recreate them:
    - `kc_work_ext_users` → Grafana **Viewer**
    - `kc_work_read-only` → Grafana **Viewer**
 
-3. **Client secret** needs to be stored in AWS Secrets Manager and injected into Grafana
+3. **AWS Secrets Manager secret `grafana`** already exists with these keys:
+   - `keycloak_client_secret` — the OIDC client secret
+   - `grafana_pg_password` — the `grafana_reader` PostgreSQL password
+   - `rds_endpoint` — the RDS database endpoint
 
 ### What to do
 
-#### 1. Store the Keycloak client secret
+#### 1. Pull the Keycloak client secret from AWS Secrets Manager
 
-- Add the Grafana client secret to AWS Secrets Manager (follow the same pattern as other secrets in this repo — check how the LiteLLM or other modules handle secrets)
-- Create a Kubernetes secret that Grafana can reference via `envFromSecrets`
+The secret `grafana` already exists. Pull `keycloak_client_secret` from it and create a Kubernetes secret that Grafana can reference via `envFromSecrets`. Follow the same pattern as other modules in this repo for reading from Secrets Manager.
 
 #### 2. Add SSO config to `values.yaml.tftpl`
 
@@ -102,12 +104,12 @@ resource "kubernetes_secret_v1" "grafana_keycloak" {
     namespace = var.namespace
   }
   data = {
-    KEYCLOAK_CLIENT_SECRET = <from-secrets-manager>
+    KEYCLOAK_CLIENT_SECRET = <pulled from AWS secret "grafana", key "keycloak_client_secret">
   }
 }
 ```
 
-Follow the same secrets pattern as the other modules.
+Follow the same secrets pattern as the other modules for reading from AWS Secrets Manager.
 
 ### Role mapping
 
