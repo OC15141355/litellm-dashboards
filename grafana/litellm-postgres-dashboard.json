@@ -312,12 +312,21 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "purple",
+                "color": "green",
                 "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.01
+              },
+              {
+                "color": "red",
+                "value": 0.05
               }
             ]
           },
-          "unit": "short"
+          "unit": "currencyUSD",
+          "decimals": 4
         },
         "overrides": []
       },
@@ -327,22 +336,22 @@
         "x": 12,
         "y": 1
       },
-      "id": 3,
+      "id": 20,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
+        "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-            "sum"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
         },
         "textMode": "auto"
       },
-      "title": "Total Tokens",
+      "title": "Avg Cost / 1K Output Tokens",
       "type": "stat",
       "targets": [
         {
@@ -353,7 +362,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT COALESCE(SUM(prompt_tokens + completion_tokens), 0) AS tokens\nFROM \"LiteLLM_DailyTeamSpend\"\nWHERE date::timestamp >= $__timeFrom()\n  AND date::timestamp <= $__timeTo()\n  AND team_id IN ($team)",
+          "rawSql": "SELECT CASE WHEN SUM(completion_tokens) > 0\n  THEN (SUM(spend) / SUM(completion_tokens)) * 1000\n  ELSE 0 END AS avg_cost_per_1k_output\nFROM \"LiteLLM_DailyTeamSpend\"\nWHERE date::timestamp >= $__timeFrom()\n  AND date::timestamp <= $__timeTo()\n  AND team_id IN ($team)",
           "refId": "A"
         }
       ]
@@ -753,7 +762,6 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -771,46 +779,28 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "never",
             "stacking": {
               "group": "A",
-              "mode": "normal"
+              "mode": "percent"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
           },
-          "unit": "short"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Input Tokens"
-            },
-            "properties": [
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
               {
-                "id": "color",
-                "value": {
-                  "fixedColor": "blue",
-                  "mode": "fixed"
-                }
+                "color": "green",
+                "value": null
               }
             ]
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Output Tokens"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
+          "unit": "percentunit",
+          "max": 1
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -818,7 +808,7 @@
         "x": 18,
         "y": 6
       },
-      "id": 18,
+      "id": 21,
       "options": {
         "legend": {
           "calcs": [],
@@ -830,7 +820,7 @@
           "sort": "desc"
         }
       },
-      "title": "Token Usage (Input vs Output)",
+      "title": "Model Mix %",
       "type": "timeseries",
       "targets": [
         {
@@ -841,7 +831,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  date::timestamp AS time,\n  SUM(prompt_tokens) AS \"Input Tokens\",\n  SUM(completion_tokens) AS \"Output Tokens\"\nFROM \"LiteLLM_DailyTeamSpend\"\nWHERE date::timestamp >= $__timeFrom()\n  AND date::timestamp <= $__timeTo()\n  AND team_id IN ($team)\nGROUP BY date\nORDER BY date",
+          "rawSql": "SELECT\n  date::timestamp AS time,\n  COALESCE(model_group, model, 'unknown') AS metric,\n  SUM(spend) AS value\nFROM \"LiteLLM_DailyTeamSpend\"\nWHERE date::timestamp >= $__timeFrom()\n  AND date::timestamp <= $__timeTo()\n  AND team_id IN ($team)\nGROUP BY date, COALESCE(model_group, model, 'unknown')\nORDER BY date",
           "refId": "A"
         }
       ]
@@ -1218,7 +1208,7 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 24,
+        "w": 14,
         "x": 0,
         "y": 22
       },
@@ -1245,6 +1235,138 @@
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT\n  COALESCE(u.user_email, d.user_id, 'unknown') AS user,\n  SUM(d.spend) AS spend,\n  MAX(u.max_budget) AS budget,\n  CASE WHEN MAX(u.max_budget) > 0\n    THEN MAX(u.max_budget) - SUM(d.spend)\n    ELSE NULL END AS remaining,\n  CASE WHEN MAX(u.max_budget) > 0\n    THEN SUM(d.spend) / MAX(u.max_budget)\n    ELSE NULL END AS usage_pct,\n  SUM(d.api_requests) AS requests\nFROM \"LiteLLM_DailyUserSpend\" d\nLEFT JOIN \"LiteLLM_UserTable\" u ON d.user_id = u.user_id\nWHERE d.date::timestamp >= $__timeFrom()\n  AND d.date::timestamp <= $__timeTo()\n  AND d.api_key IN (\n    SELECT token FROM \"LiteLLM_VerificationToken\" WHERE team_id IN ($team)\n  )\nGROUP BY u.user_email, d.user_id\nORDER BY spend DESC",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "current_spend"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "previous_spend"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pct_change"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 20
+                    },
+                    {
+                      "color": "red",
+                      "value": 50
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 10,
+        "x": 14,
+        "y": 22
+      },
+      "id": 22,
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "pct_change"
+          }
+        ],
+        "frameIndex": 0
+      },
+      "title": "User Spend vs Previous Period",
+      "type": "table",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH current_period AS (\n  SELECT\n    d.user_id,\n    COALESCE(u.user_email, d.user_id, 'unknown') AS user_name,\n    SUM(d.spend) AS spend\n  FROM \"LiteLLM_DailyUserSpend\" d\n  LEFT JOIN \"LiteLLM_UserTable\" u ON d.user_id = u.user_id\n  WHERE d.date::timestamp >= $__timeFrom()\n    AND d.date::timestamp <= $__timeTo()\n    AND d.api_key IN (\n      SELECT token FROM \"LiteLLM_VerificationToken\" WHERE team_id IN ($team)\n    )\n  GROUP BY d.user_id, u.user_email\n),\nprev_period AS (\n  SELECT\n    d.user_id,\n    SUM(d.spend) AS spend\n  FROM \"LiteLLM_DailyUserSpend\" d\n  WHERE d.date::timestamp >= $__timeFrom()::timestamp - ($__timeTo()::timestamp - $__timeFrom()::timestamp)\n    AND d.date::timestamp < $__timeFrom()\n    AND d.api_key IN (\n      SELECT token FROM \"LiteLLM_VerificationToken\" WHERE team_id IN ($team)\n    )\n  GROUP BY d.user_id\n)\nSELECT\n  c.user_name AS user,\n  c.spend AS current_spend,\n  COALESCE(p.spend, 0) AS previous_spend,\n  CASE WHEN COALESCE(p.spend, 0) > 0\n    THEN ROUND(((c.spend - p.spend) / p.spend * 100)::numeric, 1)\n    ELSE NULL END AS pct_change\nFROM current_period c\nLEFT JOIN prev_period p ON c.user_id = p.user_id\nORDER BY c.spend DESC",
           "refId": "A"
         }
       ]
