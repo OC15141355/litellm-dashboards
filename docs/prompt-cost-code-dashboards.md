@@ -14,14 +14,14 @@ LiteLLM only manages its own `LiteLLM_*` prefixed tables. A custom table in the 
 
 ## Important
 
-- **Do NOT modify existing dashboards.** The team lead and admin dashboards are already deployed and working. Only create the new finance dashboard and the database table.
+- **Do NOT modify existing dashboards or panels.** The team lead and admin dashboards are already deployed and working. The only Grafana change is adding one new panel to the finance dashboard.
 - **Follow this sequence — one step at a time, wait for confirmation before proceeding:**
 
 1. First, read and understand the `cost-mapping.sh` script (I will point you to it)
 2. I will run the script and show you the output
 3. Then design the `cost_code_mapping` table based on the actual script output
 4. Update the script to upsert into PostgreSQL
-5. Finally, build the Grafana finance dashboard
+5. Finally, add the cost code summary panel to the finance dashboard
 
 ## What I Need
 
@@ -60,38 +60,19 @@ ON CONFLICT (team_id) DO UPDATE SET
   updated_at = NOW();
 ```
 
-### 3. Integrate cost codes into existing Grafana dashboards
+### 3. Add cost code summary panel to the finance dashboard
 
-We have two dashboards:
-- **Team lead dashboard** — scoped to a single team via hidden `$team` variable (set via URL param `?var-team=<id>`)
-- **Admin dashboard** — has a team dropdown, shows all teams
+This is the **only** Grafana change. Do not touch any existing dashboards or panels.
 
-For both dashboards, join against `cost_code_mapping` where relevant:
+Add a single full-width table panel — a chargeback-ready summary that maps teams to cost codes with period spend:
 
-**In overview stat panels and row titles:**
-- Show the cost code alongside the team name (e.g. row title: `${team_name} (${cost_code})`)
-- Add a hidden `cost_code` variable that looks up the code for the selected team:
+| Team | Cost Code | Spend |
+|------|-----------|-------|
+| Platform | CC-1234 | $142.50 |
+| Data Science | CC-5678 | $89.20 |
+| Engineering | UNMAPPED | $12.10 |
 
-```sql
-SELECT COALESCE(cost_code, 'UNMAPPED') FROM cost_code_mapping WHERE team_id IN ($team)
-```
-
-**In the admin dashboard specifically:**
-- Add cost code as a column in any team-level tables
-- Group-by or filter-by cost code where it adds value
-
-### 4. Create a finance dashboard
-
-Build a new dashboard for the finance team. This is an org-wide rollup view — no team scoping, all teams visible, emphasising cost attribution and chargeback.
-
-**Panels to include:**
-
-Row 1 — Cost Code Summary (top of dashboard, full width table):
-- This is the first thing finance sees — a chargeback-ready summary table
-- Columns: Team, Cost Code, Spend (period total)
-- Sorted by spend descending
-- UNMAPPED for teams without a cost code mapping
-- Query:
+Query:
 
 ```sql
 SELECT
@@ -107,59 +88,13 @@ GROUP BY t.team_alias, d.team_id, c.cost_code
 ORDER BY "Spend" DESC
 ```
 
-Row 2 — Overview stats:
-- Total org spend (all teams, time range filtered)
-- vs previous period (% change)
-- Number of active teams
-- Number of active users
-
-Row 3 — Cost code breakdown:
-- Stacked bar timeseries: daily spend grouped by cost code
-- Pie chart: spend share by cost code
-- Table: cost code, team, total spend, budget, % used — sorted by spend descending
-
-Row 4 — Team comparison:
-- Bar chart: spend by team (ranked)
-- Timeseries: spend trend per team
-- Table: team, cost code, spend, budget remaining, model mix (top model by spend)
-
-Row 5 — Model economics:
-- Spend by model (org-wide)
-- Avg cost per 1K output tokens by model
-- Model mix % over time
-
-**Variables:**
-- `datasource` — PostgreSQL datasource selector
-- `cost_code` — optional filter (multi-select with "All" default), sourced from `cost_code_mapping`
-- Time range picker (default last 30 days)
-
-**Key tables and joins:**
+**Key tables:**
 
 | Table | Purpose |
 |-------|---------|
 | `LiteLLM_DailyTeamSpend` | Pre-aggregated daily team metrics (spend, tokens, requests) |
-| `LiteLLM_DailyUserSpend` | Pre-aggregated daily user metrics |
 | `LiteLLM_TeamTable` | Team metadata (team_alias, max_budget) |
-| `LiteLLM_UserTable` | User metadata (user_email) |
-| `LiteLLM_VerificationToken` | API keys — maps users to teams |
-| `LiteLLM_SpendLogs` | Raw per-request logs (use sparingly, not pre-aggregated) |
 | `cost_code_mapping` | Custom table mapping teams to Jira cost codes |
-
-**Example join pattern:**
-
-```sql
-SELECT
-  COALESCE(c.cost_code, 'UNMAPPED') AS cost_code,
-  COALESCE(c.cost_code_name, t.team_alias, d.team_id) AS display_name,
-  SUM(d.spend) AS spend
-FROM "LiteLLM_DailyTeamSpend" d
-LEFT JOIN "LiteLLM_TeamTable" t ON d.team_id = t.team_id
-LEFT JOIN cost_code_mapping c ON d.team_id = c.team_id
-WHERE d.date::timestamp >= $__timeFrom()
-  AND d.date::timestamp <= $__timeTo()
-GROUP BY c.cost_code, c.cost_code_name, t.team_alias, d.team_id
-ORDER BY spend DESC
-```
 
 ## Grafana 12 Gotchas
 
