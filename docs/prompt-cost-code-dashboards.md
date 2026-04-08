@@ -12,6 +12,17 @@ The cost mapping script outputs a `cost-mapping.json` file. We now want to persi
 
 LiteLLM only manages its own `LiteLLM_*` prefixed tables. A custom table in the same database will not interfere with LiteLLM's schema, migrations, or operations.
 
+## Important
+
+- **Do NOT modify existing dashboards.** The team lead and admin dashboards are already deployed and working. Only create the new finance dashboard and the database table.
+- **Follow this sequence — one step at a time, wait for confirmation before proceeding:**
+
+1. First, read and understand the `cost-mapping.sh` script (I will point you to it)
+2. I will run the script and show you the output
+3. Then design the `cost_code_mapping` table based on the actual script output
+4. Update the script to upsert into PostgreSQL
+5. Finally, build the Grafana finance dashboard
+
 ## What I Need
 
 ### 1. Create a `cost_code_mapping` table
@@ -75,23 +86,44 @@ Build a new dashboard for the finance team. This is an org-wide rollup view — 
 
 **Panels to include:**
 
-Row 1 — Overview stats:
+Row 1 — Cost Code Summary (top of dashboard, full width table):
+- This is the first thing finance sees — a chargeback-ready summary table
+- Columns: Team, Cost Code, Spend (period total)
+- Sorted by spend descending
+- UNMAPPED for teams without a cost code mapping
+- Query:
+
+```sql
+SELECT
+  COALESCE(t.team_alias, d.team_id) AS "Team",
+  COALESCE(c.cost_code, 'UNMAPPED') AS "Cost Code",
+  SUM(d.spend) AS "Spend"
+FROM "LiteLLM_DailyTeamSpend" d
+LEFT JOIN "LiteLLM_TeamTable" t ON d.team_id = t.team_id
+LEFT JOIN cost_code_mapping c ON d.team_id = c.team_id
+WHERE d.date::timestamp >= $__timeFrom()
+  AND d.date::timestamp <= $__timeTo()
+GROUP BY t.team_alias, d.team_id, c.cost_code
+ORDER BY "Spend" DESC
+```
+
+Row 2 — Overview stats:
 - Total org spend (all teams, time range filtered)
 - vs previous period (% change)
 - Number of active teams
 - Number of active users
 
-Row 2 — Cost code breakdown:
+Row 3 — Cost code breakdown:
 - Stacked bar timeseries: daily spend grouped by cost code
 - Pie chart: spend share by cost code
 - Table: cost code, team, total spend, budget, % used — sorted by spend descending
 
-Row 3 — Team comparison:
+Row 4 — Team comparison:
 - Bar chart: spend by team (ranked)
 - Timeseries: spend trend per team
 - Table: team, cost code, spend, budget remaining, model mix (top model by spend)
 
-Row 4 — Model economics:
+Row 5 — Model economics:
 - Spend by model (org-wide)
 - Avg cost per 1K output tokens by model
 - Model mix % over time
