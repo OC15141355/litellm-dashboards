@@ -39,12 +39,11 @@ SELECT 'SpendLogs', count(*) FROM "LiteLLM_SpendLogs" WHERE "user" = 'wrong-id';
 
 ## Step 2 — Run the Rename
 
-Execute as a single transaction:
+Execute as a single transaction. **Child tables must be updated before `LiteLLM_UserTable`** — `LiteLLM_OrganizationMembership` declares a real foreign key on `user_id` (no `ON UPDATE CASCADE`), so updating the parent first will abort the transaction on any user with org membership. Order below is safe regardless.
 
 ```sql
 BEGIN;
 
-UPDATE "LiteLLM_UserTable" SET user_id = 'correct-id' WHERE user_id = 'wrong-id';
 UPDATE "LiteLLM_VerificationToken" SET user_id = 'correct-id' WHERE user_id = 'wrong-id';
 UPDATE "LiteLLM_DailyUserSpend" SET user_id = 'correct-id' WHERE user_id = 'wrong-id';
 UPDATE "LiteLLM_InvitationLink" SET user_id = 'correct-id' WHERE user_id = 'wrong-id';
@@ -55,9 +54,12 @@ UPDATE "LiteLLM_UserNotifications" SET user_id = 'correct-id' WHERE user_id = 'w
 UPDATE "LiteLLM_EndUserTable" SET user_id = 'correct-id' WHERE user_id = 'wrong-id';
 UPDATE "LiteLLM_ManagedVectorStoresTable" SET user_id = 'correct-id' WHERE user_id = 'wrong-id';
 UPDATE "LiteLLM_SpendLogs" SET "user" = 'correct-id' WHERE "user" = 'wrong-id';
+UPDATE "LiteLLM_UserTable" SET user_id = 'correct-id' WHERE user_id = 'wrong-id';
 
 COMMIT;
 ```
+
+> The previous version of this doc updated `LiteLLM_UserTable` first. That worked on the homelab instance only because no users had org memberships. On the work instance (where org memberships exist) it would abort with `update or delete on table "LiteLLM_UserTable" violates foreign key constraint`. Children-first is correct on both.
 
 ## Step 3 — Verify
 
