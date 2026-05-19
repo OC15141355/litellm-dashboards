@@ -11,21 +11,29 @@ Root cause is at least two interacting bugs:
 
 Cost map state shifted on May 12 when our LiteLLM image rolled via floating `:main-stable` tag, which is what made the latent UI bug visible.
 
-## Version posture (READ FIRST — task-zero)
+## Version posture (READ FIRST)
 
-**We do not currently know our running version.** It is whatever `ghcr.io/berriai/litellm*:main-stable` resolved to when the image rolled on 2026-05-12. Determining it is the first action, because Tasks 1, 3 and 6 all depend on it:
+**Running version is KNOWN: `v1.83.14-stable.patch.3`** (confirmed 2026-05-19; identical to the homelab deployment). The 2026-05-12 incident trigger was the floating `:main-stable` tag rolling the image to this build. Verify on-site if needed:
 
 ```bash
-# running version
 curl -s https://<litellm-host>/health/readiness | jq .litellm_version
-# running image digest (the authoritative identity behind the floating tag)
 kubectl -n <ns> get pod -l <selector> -o jsonpath='{.items[*].status.containerStatuses[*].imageID}'
 ```
 
-**There is no release that is both CVE-clean and free of #27612.** This is load-bearing — do not chase a version that "fixes" the cost bug; none exists:
+**Neither a downgrade NOR an upgrade fixes #27612 — evidenced, do not chase a version.**
 
-- Issue **#27612 was filed against v1.83.14**. The fix **PR #27625 is OPEN, unmerged, base `litellm_internal_staging`, review-required — present in NO released version** (verified via `gh pr view 27625`).
-- Therefore a version bump does **not** resolve the cost-tracking incident. Treat the version axis and the cost-bug axis as orthogonal.
+- The strip mechanism is `get_bedrock_base_model()` → `_strip_model_name()` (`litellm/utils.py`); `au` was added to the strip-eligible region list by **PR #15402 (commit `a0e81a7f1c`), merged 2025-10-10, first shipped ~v1.78.5**.
+- The buggy store-and-lookup path is **identical in v1.83.10-stable and v1.83.14-stable** (diffed). It is **not a recent regression** — it has never worked correctly for UI/DB-stored AU regional inference profiles since `au` support landed.
+- The bug therefore **predates the CVE-clean floor (v1.83.10)**. LiteLLM does not backport below 1.83. So **every CVE-safe version has this bug, and every bug-free version is below the security floor.**
+- Fix **PR #27625 is OPEN, unmerged, base `litellm_internal_staging`, in NO release** (`gh pr view 27625`). Greptile-flagged on design. Treat as irrelevant to remediation.
+
+### Downgrade verdict — DO NOT (it is a trap)
+
+1. No downgrade target is both CVE-clean and bug-free (bug predates v1.83.10).
+2. LiteLLM Prisma migrations are **strictly forward-only — zero `down.sql` files exist** in `litellm-proxy-extras/migrations/`. Downgrading the 1.83.14 schema has no clean reverse path: manual DB surgery or restore-from-snapshot only.
+3. Downgrading trades a *fully fixable* cost-accuracy bug for **active CVEs (35030/35029/42203/42271/40217 + GHSA-69x8) + an unrecoverable DB state** — unacceptable under Essential Eight ML2/ML3 / ISM.
+
+Treat the version axis and the cost-bug axis as orthogonal. Version decision = CVE posture + stop the floating-tag roll. Cost-bug fix = config-level only.
 
 **CVE axis (independent of the cost bug):**
 
@@ -35,20 +43,21 @@ kubectl -n <ns> get pod -l <selector> -o jsonpath='{.items[*].status.containerSt
 - **Pin by digest, not tag.** The floating `:main-stable` tag is the root of this incident chain; a digest pin both closes the CVEs and *freezes the cost-map state* so it cannot silently roll again. Verified-available digest:
   `ghcr.io/berriai/litellm-database:v1.83.14-stable.patch.3` → index `sha256:ec721a5e4b0decb3658c74b696e315dc3e1c664adbfbadded0564ee2d6cc03bc`.
 
-**Cost-bug axis (#27612) — fixed only at config level, not by any version:**
+**Cost-bug axis (#27612) — fixed only at config level, not by any version (verified sound on 1.83.14):**
 
-- Declare regional Bedrock models in `proxy_config.model_list` with explicit `input_cost_per_token` / `output_cost_per_token` (bypasses the UI strip-and-autoprice path entirely — the #27612 repro hinges on *not* entering manual prices).
-- And/or set `LITELLM_LOCAL_MODEL_COST_MAP` so the cost map is version-controlled and not loaded from a bundled JSON that shifts with the image.
+- Declare regional Bedrock models in `proxy_config.model_list` with explicit `input_cost_per_token` / `output_cost_per_token`. This routes through `_cost_per_token_custom_pricing_helper` (`custom_pricing=True`) and **bypasses the strip-and-autoprice path entirely** — the #27612 repro hinges on *not* entering manual prices.
+- **#11975 does NOT apply to us:** the "custom pricing → $0" bug was a v1.72.0 issue requiring `router_model_id` plumbing; that fix is present in 1.83.x (regression test `test_custom_pricing_with_router_model_id`). Explicit per-token pricing IS respected on our version.
+- AU regional values to use: `input_cost_per_token: 3.3e-6`, `output_cost_per_token: 1.65e-5`, `cache_creation_input_token_cost: 4.125e-6` (Sonnet 4.5 ap-southeast-2; confirm current Bedrock AU rates at apply-time).
+- Also set `LITELLM_LOCAL_MODEL_COST_MAP=True` — pins the cost map, removes the GitHub-fetch nondeterminism that the floating tag exploited. Defence-in-depth, not a fix on its own (only explicit prices fix the strip).
 
-## Open question for the investigation
+## Open question for the investigation — RESOLVED (verify against live DB)
 
-Our LiteLLM version's behaviour for the stripped key (`anthropic.claude-sonnet-4-6` without `au.` prefix) is to silently fall back to zero pricing. The #27612 reporter's version falls back to US-region pricing instead. We need to identify whether this is:
+Our behaviour (stripped key → silent **zero** pricing) vs the #27612 reporter's (stripped key → **us-east-1** pricing) is **the same root bug, different stored fallback** — NOT a distinct second bug and NOT a version difference (the buggy path is byte-identical across 1.83.10/1.83.14):
 
-- A version difference in how `completion_cost()` handles the stripped key
-- An interaction with the May 12 cost map state change
-- A distinct second bug
+- DB-stored models persist pricing into `model_info` at **add-time**, not via per-request live lookup.
+- At the reporter's add-time the stripped key matched the bundled `anthropic.claude-...` entry → wrong-region price stored. At our add-time (post the 2026-05-12 `:main-stable` roll, which shifted cost-map contents/ordering) the stripped key matched **no** entry → `input_cost_per_token` stored as 0/null. Silent-$0 on unmapped keys is documented known behaviour (see model-cost-map incident report).
 
-This matters because PR #27625 may or may not fully address our variant.
+**Still to do on-site (confirm, don't re-derive):** query the stored model record(s) and a SpendLogs sample to confirm `input_cost_per_token`/`output_cost_per_token` are literally 0/null for the affected `au.` models (vs us-east-1 values) — this distinguishes our variant in the data and sizes the backfill. PR #27625 is irrelevant to remediation (unreleased).
 
 ## Issues to fetch and synthesise
 
@@ -148,7 +157,7 @@ Structure:
 
 ## Constraints
 
-- LiteLLM version: **UNKNOWN — determine first** (see "Version posture (READ FIRST)" above). Running image rolled via floating `:main-stable` on 2026-05-12; capture both `.litellm_version` and the running image digest before any other task.
+- LiteLLM version: **`v1.83.14-stable.patch.3`** (confirmed 2026-05-19; same build as homelab). Bug predates this and the entire CVE-clean line — see "Version posture (READ FIRST)". Capture the running image digest and pin it (kill the floating `:main-stable` tag — that nondeterministic roll is itself an ML2/ISM configuration-integrity finding).
 - AWS region: ap-southeast-2 (Sydney)
 - Compliance context: Essential Eight ML2/ML3, ISM — cost data needs to be audit-defensible
 - Multi-provider: also routing some traffic through Azure OpenAI AU East (separate but related)
