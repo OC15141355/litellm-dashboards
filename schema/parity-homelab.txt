@@ -1,0 +1,1164 @@
+### MIGRATION_HEAD
+20260418000000_add_adaptive_router_tables
+### MIGRATION_COUNT
+119
+### COLUMNS -- table|column|type|nullable|default
+DailyTagSpend|individual_request_tag|text|YES|
+DailyTagSpend|log_count|bigint|YES|
+DailyTagSpend|spend_date|date|YES|
+DailyTagSpend|total_spend|double precision|YES|
+Last30dKeysBySpend|api_key|text|YES|
+Last30dKeysBySpend|key_alias|text|YES|
+Last30dKeysBySpend|key_name|text|YES|
+Last30dKeysBySpend|total_spend|double precision|YES|
+Last30dModelsBySpend|model|text|YES|
+Last30dModelsBySpend|total_spend|double precision|YES|
+Last30dTopEndUsersSpend|end_user|text|YES|
+Last30dTopEndUsersSpend|total_events|bigint|YES|
+Last30dTopEndUsersSpend|total_spend|double precision|YES|
+LiteLLM_AccessGroupTable|access_agent_ids|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_AccessGroupTable|access_group_id|text|NO|
+LiteLLM_AccessGroupTable|access_group_name|text|NO|
+LiteLLM_AccessGroupTable|access_mcp_server_ids|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_AccessGroupTable|access_model_names|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_AccessGroupTable|assigned_key_ids|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_AccessGroupTable|assigned_team_ids|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_AccessGroupTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_AccessGroupTable|created_by|text|YES|
+LiteLLM_AccessGroupTable|description|text|YES|
+LiteLLM_AccessGroupTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_AccessGroupTable|updated_by|text|YES|
+LiteLLM_AdaptiveRouterSession|classified_type|text|NO|
+LiteLLM_AdaptiveRouterSession|clean_credit_awarded|boolean|NO|false
+LiteLLM_AdaptiveRouterSession|disengagement_count|integer|NO|0
+LiteLLM_AdaptiveRouterSession|exhaustion_count|integer|NO|0
+LiteLLM_AdaptiveRouterSession|failure_count|integer|NO|0
+LiteLLM_AdaptiveRouterSession|last_activity_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_AdaptiveRouterSession|last_assistant_content|text|YES|
+LiteLLM_AdaptiveRouterSession|last_processed_turn|integer|NO|'-1'::integer
+LiteLLM_AdaptiveRouterSession|last_user_content|text|YES|
+LiteLLM_AdaptiveRouterSession|loop_count|integer|NO|0
+LiteLLM_AdaptiveRouterSession|misalignment_count|integer|NO|0
+LiteLLM_AdaptiveRouterSession|model_name|text|NO|
+LiteLLM_AdaptiveRouterSession|pending_tool_calls|jsonb|NO|'{}'::jsonb
+LiteLLM_AdaptiveRouterSession|router_name|text|NO|
+LiteLLM_AdaptiveRouterSession|satisfaction_count|integer|NO|0
+LiteLLM_AdaptiveRouterSession|session_id|text|NO|
+LiteLLM_AdaptiveRouterSession|stagnation_count|integer|NO|0
+LiteLLM_AdaptiveRouterSession|terminal_status|integer|YES|
+LiteLLM_AdaptiveRouterSession|tool_call_history|jsonb|NO|'[]'::jsonb
+LiteLLM_AdaptiveRouterSession|turn_count|integer|NO|0
+LiteLLM_AdaptiveRouterState|alpha|double precision|NO|
+LiteLLM_AdaptiveRouterState|beta|double precision|NO|
+LiteLLM_AdaptiveRouterState|last_updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_AdaptiveRouterState|model_name|text|NO|
+LiteLLM_AdaptiveRouterState|request_type|text|NO|
+LiteLLM_AdaptiveRouterState|router_name|text|NO|
+LiteLLM_AdaptiveRouterState|total_samples|integer|NO|0
+LiteLLM_AgentsTable|agent_access_groups|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_AgentsTable|agent_card_params|jsonb|NO|
+LiteLLM_AgentsTable|agent_id|text|NO|
+LiteLLM_AgentsTable|agent_name|text|NO|
+LiteLLM_AgentsTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_AgentsTable|created_by|text|NO|
+LiteLLM_AgentsTable|extra_headers|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_AgentsTable|litellm_params|jsonb|YES|
+LiteLLM_AgentsTable|object_permission_id|text|YES|
+LiteLLM_AgentsTable|rpm_limit|integer|YES|
+LiteLLM_AgentsTable|session_rpm_limit|integer|YES|
+LiteLLM_AgentsTable|session_tpm_limit|integer|YES|
+LiteLLM_AgentsTable|spend|double precision|NO|0.0
+LiteLLM_AgentsTable|static_headers|jsonb|YES|'{}'::jsonb
+LiteLLM_AgentsTable|tpm_limit|integer|YES|
+LiteLLM_AgentsTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_AgentsTable|updated_by|text|NO|
+LiteLLM_AuditLog|action|text|NO|
+LiteLLM_AuditLog|before_value|jsonb|YES|
+LiteLLM_AuditLog|changed_by|text|NO|''::text
+LiteLLM_AuditLog|changed_by_api_key|text|NO|''::text
+LiteLLM_AuditLog|id|text|NO|
+LiteLLM_AuditLog|object_id|text|NO|
+LiteLLM_AuditLog|table_name|text|NO|
+LiteLLM_AuditLog|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_AuditLog|updated_values|jsonb|YES|
+LiteLLM_BudgetTable|allowed_models|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_BudgetTable|budget_duration|text|YES|
+LiteLLM_BudgetTable|budget_id|text|NO|
+LiteLLM_BudgetTable|budget_reset_at|timestamp without time zone|YES|
+LiteLLM_BudgetTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_BudgetTable|created_by|text|NO|
+LiteLLM_BudgetTable|max_budget|double precision|YES|
+LiteLLM_BudgetTable|max_parallel_requests|integer|YES|
+LiteLLM_BudgetTable|model_max_budget|jsonb|YES|
+LiteLLM_BudgetTable|rpm_limit|bigint|YES|
+LiteLLM_BudgetTable|soft_budget|double precision|YES|
+LiteLLM_BudgetTable|tpm_limit|bigint|YES|
+LiteLLM_BudgetTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_BudgetTable|updated_by|text|NO|
+LiteLLM_CacheConfig|cache_settings|jsonb|NO|
+LiteLLM_CacheConfig|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_CacheConfig|id|text|NO|'cache_config'::text
+LiteLLM_CacheConfig|updated_at|timestamp without time zone|NO|
+LiteLLM_ClaudeCodePluginTable|created_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+LiteLLM_ClaudeCodePluginTable|created_by|text|YES|
+LiteLLM_ClaudeCodePluginTable|description|text|YES|
+LiteLLM_ClaudeCodePluginTable|enabled|boolean|NO|true
+LiteLLM_ClaudeCodePluginTable|files_json|text|YES|'{}'::text
+LiteLLM_ClaudeCodePluginTable|id|text|NO|
+LiteLLM_ClaudeCodePluginTable|manifest_json|text|YES|
+LiteLLM_ClaudeCodePluginTable|name|text|NO|
+LiteLLM_ClaudeCodePluginTable|updated_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+LiteLLM_ClaudeCodePluginTable|version|text|YES|
+LiteLLM_Config|param_name|text|NO|
+LiteLLM_Config|param_value|jsonb|YES|
+LiteLLM_ConfigOverrides|config_type|text|NO|
+LiteLLM_ConfigOverrides|config_value|jsonb|NO|
+LiteLLM_ConfigOverrides|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_ConfigOverrides|updated_at|timestamp without time zone|NO|
+LiteLLM_CredentialsTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_CredentialsTable|created_by|text|NO|
+LiteLLM_CredentialsTable|credential_id|text|NO|
+LiteLLM_CredentialsTable|credential_info|jsonb|YES|
+LiteLLM_CredentialsTable|credential_name|text|NO|
+LiteLLM_CredentialsTable|credential_values|jsonb|NO|
+LiteLLM_CredentialsTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_CredentialsTable|updated_by|text|NO|
+LiteLLM_CronJob|cronjob_id|text|NO|
+LiteLLM_CronJob|last_updated|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_CronJob|pod_id|text|NO|
+LiteLLM_CronJob|status|USER-DEFINED|NO|'INACTIVE'::"JobStatus"
+LiteLLM_CronJob|ttl|timestamp without time zone|NO|
+LiteLLM_DailyAgentSpend|agent_id|text|YES|
+LiteLLM_DailyAgentSpend|api_key|text|NO|
+LiteLLM_DailyAgentSpend|api_requests|bigint|NO|0
+LiteLLM_DailyAgentSpend|cache_creation_input_tokens|bigint|NO|0
+LiteLLM_DailyAgentSpend|cache_read_input_tokens|bigint|NO|0
+LiteLLM_DailyAgentSpend|completion_tokens|bigint|NO|0
+LiteLLM_DailyAgentSpend|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_DailyAgentSpend|custom_llm_provider|text|YES|
+LiteLLM_DailyAgentSpend|date|text|NO|
+LiteLLM_DailyAgentSpend|endpoint|text|YES|
+LiteLLM_DailyAgentSpend|failed_requests|bigint|NO|0
+LiteLLM_DailyAgentSpend|id|text|NO|
+LiteLLM_DailyAgentSpend|mcp_namespaced_tool_name|text|YES|
+LiteLLM_DailyAgentSpend|model|text|YES|
+LiteLLM_DailyAgentSpend|model_group|text|YES|
+LiteLLM_DailyAgentSpend|prompt_tokens|bigint|NO|0
+LiteLLM_DailyAgentSpend|spend|double precision|NO|0.0
+LiteLLM_DailyAgentSpend|successful_requests|bigint|NO|0
+LiteLLM_DailyAgentSpend|updated_at|timestamp without time zone|NO|
+LiteLLM_DailyEndUserSpend|api_key|text|NO|
+LiteLLM_DailyEndUserSpend|api_requests|bigint|NO|0
+LiteLLM_DailyEndUserSpend|cache_creation_input_tokens|bigint|NO|0
+LiteLLM_DailyEndUserSpend|cache_read_input_tokens|bigint|NO|0
+LiteLLM_DailyEndUserSpend|completion_tokens|bigint|NO|0
+LiteLLM_DailyEndUserSpend|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_DailyEndUserSpend|custom_llm_provider|text|YES|
+LiteLLM_DailyEndUserSpend|date|text|NO|
+LiteLLM_DailyEndUserSpend|end_user_id|text|YES|
+LiteLLM_DailyEndUserSpend|endpoint|text|YES|
+LiteLLM_DailyEndUserSpend|failed_requests|bigint|NO|0
+LiteLLM_DailyEndUserSpend|id|text|NO|
+LiteLLM_DailyEndUserSpend|mcp_namespaced_tool_name|text|YES|
+LiteLLM_DailyEndUserSpend|model|text|YES|
+LiteLLM_DailyEndUserSpend|model_group|text|YES|
+LiteLLM_DailyEndUserSpend|prompt_tokens|bigint|NO|0
+LiteLLM_DailyEndUserSpend|spend|double precision|NO|0.0
+LiteLLM_DailyEndUserSpend|successful_requests|bigint|NO|0
+LiteLLM_DailyEndUserSpend|updated_at|timestamp without time zone|NO|
+LiteLLM_DailyGuardrailMetrics|avg_latency_ms|double precision|YES|
+LiteLLM_DailyGuardrailMetrics|avg_score|double precision|YES|
+LiteLLM_DailyGuardrailMetrics|blocked_count|bigint|NO|0
+LiteLLM_DailyGuardrailMetrics|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_DailyGuardrailMetrics|date|text|NO|
+LiteLLM_DailyGuardrailMetrics|flagged_count|bigint|NO|0
+LiteLLM_DailyGuardrailMetrics|guardrail_id|text|NO|
+LiteLLM_DailyGuardrailMetrics|passed_count|bigint|NO|0
+LiteLLM_DailyGuardrailMetrics|requests_evaluated|bigint|NO|0
+LiteLLM_DailyGuardrailMetrics|updated_at|timestamp without time zone|NO|
+LiteLLM_DailyOrganizationSpend|api_key|text|NO|
+LiteLLM_DailyOrganizationSpend|api_requests|bigint|NO|0
+LiteLLM_DailyOrganizationSpend|cache_creation_input_tokens|bigint|NO|0
+LiteLLM_DailyOrganizationSpend|cache_read_input_tokens|bigint|NO|0
+LiteLLM_DailyOrganizationSpend|completion_tokens|bigint|NO|0
+LiteLLM_DailyOrganizationSpend|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_DailyOrganizationSpend|custom_llm_provider|text|YES|
+LiteLLM_DailyOrganizationSpend|date|text|NO|
+LiteLLM_DailyOrganizationSpend|endpoint|text|YES|
+LiteLLM_DailyOrganizationSpend|failed_requests|bigint|NO|0
+LiteLLM_DailyOrganizationSpend|id|text|NO|
+LiteLLM_DailyOrganizationSpend|mcp_namespaced_tool_name|text|YES|
+LiteLLM_DailyOrganizationSpend|model|text|YES|
+LiteLLM_DailyOrganizationSpend|model_group|text|YES|
+LiteLLM_DailyOrganizationSpend|organization_id|text|YES|
+LiteLLM_DailyOrganizationSpend|prompt_tokens|bigint|NO|0
+LiteLLM_DailyOrganizationSpend|spend|double precision|NO|0.0
+LiteLLM_DailyOrganizationSpend|successful_requests|bigint|NO|0
+LiteLLM_DailyOrganizationSpend|updated_at|timestamp without time zone|NO|
+LiteLLM_DailyPolicyMetrics|avg_latency_ms|double precision|YES|
+LiteLLM_DailyPolicyMetrics|avg_score|double precision|YES|
+LiteLLM_DailyPolicyMetrics|blocked_count|bigint|NO|0
+LiteLLM_DailyPolicyMetrics|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_DailyPolicyMetrics|date|text|NO|
+LiteLLM_DailyPolicyMetrics|flagged_count|bigint|NO|0
+LiteLLM_DailyPolicyMetrics|passed_count|bigint|NO|0
+LiteLLM_DailyPolicyMetrics|policy_id|text|NO|
+LiteLLM_DailyPolicyMetrics|requests_evaluated|bigint|NO|0
+LiteLLM_DailyPolicyMetrics|updated_at|timestamp without time zone|NO|
+LiteLLM_DailyTagSpend|api_key|text|NO|
+LiteLLM_DailyTagSpend|api_requests|bigint|NO|0
+LiteLLM_DailyTagSpend|cache_creation_input_tokens|bigint|NO|0
+LiteLLM_DailyTagSpend|cache_read_input_tokens|bigint|NO|0
+LiteLLM_DailyTagSpend|completion_tokens|bigint|NO|0
+LiteLLM_DailyTagSpend|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_DailyTagSpend|custom_llm_provider|text|YES|
+LiteLLM_DailyTagSpend|date|text|NO|
+LiteLLM_DailyTagSpend|endpoint|text|YES|
+LiteLLM_DailyTagSpend|failed_requests|bigint|NO|0
+LiteLLM_DailyTagSpend|id|text|NO|
+LiteLLM_DailyTagSpend|mcp_namespaced_tool_name|text|YES|
+LiteLLM_DailyTagSpend|model|text|YES|
+LiteLLM_DailyTagSpend|model_group|text|YES|
+LiteLLM_DailyTagSpend|prompt_tokens|bigint|NO|0
+LiteLLM_DailyTagSpend|request_id|text|YES|
+LiteLLM_DailyTagSpend|spend|double precision|NO|0.0
+LiteLLM_DailyTagSpend|successful_requests|bigint|NO|0
+LiteLLM_DailyTagSpend|tag|text|YES|
+LiteLLM_DailyTagSpend|updated_at|timestamp without time zone|NO|
+LiteLLM_DailyTeamSpend|api_key|text|NO|
+LiteLLM_DailyTeamSpend|api_requests|bigint|NO|0
+LiteLLM_DailyTeamSpend|cache_creation_input_tokens|bigint|NO|0
+LiteLLM_DailyTeamSpend|cache_read_input_tokens|bigint|NO|0
+LiteLLM_DailyTeamSpend|completion_tokens|bigint|NO|0
+LiteLLM_DailyTeamSpend|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_DailyTeamSpend|custom_llm_provider|text|YES|
+LiteLLM_DailyTeamSpend|date|text|NO|
+LiteLLM_DailyTeamSpend|endpoint|text|YES|
+LiteLLM_DailyTeamSpend|failed_requests|bigint|NO|0
+LiteLLM_DailyTeamSpend|id|text|NO|
+LiteLLM_DailyTeamSpend|mcp_namespaced_tool_name|text|YES|
+LiteLLM_DailyTeamSpend|model|text|YES|
+LiteLLM_DailyTeamSpend|model_group|text|YES|
+LiteLLM_DailyTeamSpend|prompt_tokens|bigint|NO|0
+LiteLLM_DailyTeamSpend|spend|double precision|NO|0.0
+LiteLLM_DailyTeamSpend|successful_requests|bigint|NO|0
+LiteLLM_DailyTeamSpend|team_id|text|YES|
+LiteLLM_DailyTeamSpend|updated_at|timestamp without time zone|NO|
+LiteLLM_DailyUserSpend|api_key|text|NO|
+LiteLLM_DailyUserSpend|api_requests|bigint|NO|0
+LiteLLM_DailyUserSpend|cache_creation_input_tokens|bigint|NO|0
+LiteLLM_DailyUserSpend|cache_read_input_tokens|bigint|NO|0
+LiteLLM_DailyUserSpend|completion_tokens|bigint|NO|0
+LiteLLM_DailyUserSpend|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_DailyUserSpend|custom_llm_provider|text|YES|
+LiteLLM_DailyUserSpend|date|text|NO|
+LiteLLM_DailyUserSpend|endpoint|text|YES|
+LiteLLM_DailyUserSpend|failed_requests|bigint|NO|0
+LiteLLM_DailyUserSpend|id|text|NO|
+LiteLLM_DailyUserSpend|mcp_namespaced_tool_name|text|YES|
+LiteLLM_DailyUserSpend|model|text|YES|
+LiteLLM_DailyUserSpend|model_group|text|YES|
+LiteLLM_DailyUserSpend|prompt_tokens|bigint|NO|0
+LiteLLM_DailyUserSpend|spend|double precision|NO|0.0
+LiteLLM_DailyUserSpend|successful_requests|bigint|NO|0
+LiteLLM_DailyUserSpend|updated_at|timestamp without time zone|NO|
+LiteLLM_DailyUserSpend|user_id|text|YES|
+LiteLLM_DeletedTeamTable|access_group_ids|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_DeletedTeamTable|admins|ARRAY|YES|
+LiteLLM_DeletedTeamTable|allow_team_guardrail_config|boolean|NO|false
+LiteLLM_DeletedTeamTable|blocked|boolean|NO|false
+LiteLLM_DeletedTeamTable|budget_duration|text|YES|
+LiteLLM_DeletedTeamTable|budget_reset_at|timestamp without time zone|YES|
+LiteLLM_DeletedTeamTable|created_at|timestamp without time zone|YES|
+LiteLLM_DeletedTeamTable|deleted_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_DeletedTeamTable|deleted_by|text|YES|
+LiteLLM_DeletedTeamTable|deleted_by_api_key|text|YES|
+LiteLLM_DeletedTeamTable|id|text|NO|
+LiteLLM_DeletedTeamTable|litellm_changed_by|text|YES|
+LiteLLM_DeletedTeamTable|max_budget|double precision|YES|
+LiteLLM_DeletedTeamTable|max_parallel_requests|integer|YES|
+LiteLLM_DeletedTeamTable|members|ARRAY|YES|
+LiteLLM_DeletedTeamTable|members_with_roles|jsonb|NO|'{}'::jsonb
+LiteLLM_DeletedTeamTable|metadata|jsonb|NO|'{}'::jsonb
+LiteLLM_DeletedTeamTable|model_id|integer|YES|
+LiteLLM_DeletedTeamTable|model_max_budget|jsonb|NO|'{}'::jsonb
+LiteLLM_DeletedTeamTable|model_spend|jsonb|NO|'{}'::jsonb
+LiteLLM_DeletedTeamTable|models|ARRAY|YES|
+LiteLLM_DeletedTeamTable|object_permission_id|text|YES|
+LiteLLM_DeletedTeamTable|organization_id|text|YES|
+LiteLLM_DeletedTeamTable|policies|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_DeletedTeamTable|router_settings|jsonb|YES|'{}'::jsonb
+LiteLLM_DeletedTeamTable|rpm_limit|bigint|YES|
+LiteLLM_DeletedTeamTable|soft_budget|double precision|YES|
+LiteLLM_DeletedTeamTable|spend|double precision|NO|0.0
+LiteLLM_DeletedTeamTable|team_alias|text|YES|
+LiteLLM_DeletedTeamTable|team_id|text|NO|
+LiteLLM_DeletedTeamTable|team_member_permissions|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_DeletedTeamTable|tpm_limit|bigint|YES|
+LiteLLM_DeletedTeamTable|updated_at|timestamp without time zone|YES|
+LiteLLM_DeletedVerificationToken|access_group_ids|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_DeletedVerificationToken|agent_id|text|YES|
+LiteLLM_DeletedVerificationToken|aliases|jsonb|NO|'{}'::jsonb
+LiteLLM_DeletedVerificationToken|allowed_cache_controls|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_DeletedVerificationToken|allowed_routes|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_DeletedVerificationToken|auto_rotate|boolean|YES|false
+LiteLLM_DeletedVerificationToken|blocked|boolean|YES|
+LiteLLM_DeletedVerificationToken|budget_duration|text|YES|
+LiteLLM_DeletedVerificationToken|budget_id|text|YES|
+LiteLLM_DeletedVerificationToken|budget_reset_at|timestamp without time zone|YES|
+LiteLLM_DeletedVerificationToken|config|jsonb|NO|'{}'::jsonb
+LiteLLM_DeletedVerificationToken|created_at|timestamp without time zone|YES|
+LiteLLM_DeletedVerificationToken|created_by|text|YES|
+LiteLLM_DeletedVerificationToken|deleted_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_DeletedVerificationToken|deleted_by|text|YES|
+LiteLLM_DeletedVerificationToken|deleted_by_api_key|text|YES|
+LiteLLM_DeletedVerificationToken|expires|timestamp without time zone|YES|
+LiteLLM_DeletedVerificationToken|id|text|NO|
+LiteLLM_DeletedVerificationToken|key_alias|text|YES|
+LiteLLM_DeletedVerificationToken|key_name|text|YES|
+LiteLLM_DeletedVerificationToken|key_rotation_at|timestamp without time zone|YES|
+LiteLLM_DeletedVerificationToken|last_active|timestamp without time zone|YES|
+LiteLLM_DeletedVerificationToken|last_rotation_at|timestamp without time zone|YES|
+LiteLLM_DeletedVerificationToken|litellm_changed_by|text|YES|
+LiteLLM_DeletedVerificationToken|max_budget|double precision|YES|
+LiteLLM_DeletedVerificationToken|max_parallel_requests|integer|YES|
+LiteLLM_DeletedVerificationToken|metadata|jsonb|NO|'{}'::jsonb
+LiteLLM_DeletedVerificationToken|model_max_budget|jsonb|NO|'{}'::jsonb
+LiteLLM_DeletedVerificationToken|model_spend|jsonb|NO|'{}'::jsonb
+LiteLLM_DeletedVerificationToken|models|ARRAY|YES|
+LiteLLM_DeletedVerificationToken|object_permission_id|text|YES|
+LiteLLM_DeletedVerificationToken|organization_id|text|YES|
+LiteLLM_DeletedVerificationToken|permissions|jsonb|NO|'{}'::jsonb
+LiteLLM_DeletedVerificationToken|policies|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_DeletedVerificationToken|project_id|text|YES|
+LiteLLM_DeletedVerificationToken|rotation_count|integer|YES|0
+LiteLLM_DeletedVerificationToken|rotation_interval|text|YES|
+LiteLLM_DeletedVerificationToken|router_settings|jsonb|YES|'{}'::jsonb
+LiteLLM_DeletedVerificationToken|rpm_limit|bigint|YES|
+LiteLLM_DeletedVerificationToken|soft_budget_cooldown|boolean|NO|false
+LiteLLM_DeletedVerificationToken|spend|double precision|NO|0.0
+LiteLLM_DeletedVerificationToken|team_id|text|YES|
+LiteLLM_DeletedVerificationToken|token|text|NO|
+LiteLLM_DeletedVerificationToken|tpm_limit|bigint|YES|
+LiteLLM_DeletedVerificationToken|updated_at|timestamp without time zone|YES|
+LiteLLM_DeletedVerificationToken|updated_by|text|YES|
+LiteLLM_DeletedVerificationToken|user_id|text|YES|
+LiteLLM_DeprecatedVerificationToken|active_token_id|text|NO|
+LiteLLM_DeprecatedVerificationToken|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_DeprecatedVerificationToken|id|text|NO|
+LiteLLM_DeprecatedVerificationToken|revoke_at|timestamp without time zone|NO|
+LiteLLM_DeprecatedVerificationToken|token|text|NO|
+LiteLLM_EndUserTable|alias|text|YES|
+LiteLLM_EndUserTable|allowed_model_region|text|YES|
+LiteLLM_EndUserTable|blocked|boolean|NO|false
+LiteLLM_EndUserTable|budget_id|text|YES|
+LiteLLM_EndUserTable|default_model|text|YES|
+LiteLLM_EndUserTable|object_permission_id|text|YES|
+LiteLLM_EndUserTable|spend|double precision|NO|0.0
+LiteLLM_EndUserTable|user_id|text|NO|
+LiteLLM_ErrorLogs|api_base|text|NO|''::text
+LiteLLM_ErrorLogs|endTime|timestamp without time zone|NO|
+LiteLLM_ErrorLogs|exception_string|text|NO|''::text
+LiteLLM_ErrorLogs|exception_type|text|NO|''::text
+LiteLLM_ErrorLogs|litellm_model_name|text|NO|''::text
+LiteLLM_ErrorLogs|model_group|text|NO|''::text
+LiteLLM_ErrorLogs|model_id|text|NO|''::text
+LiteLLM_ErrorLogs|request_id|text|NO|
+LiteLLM_ErrorLogs|request_kwargs|jsonb|NO|'{}'::jsonb
+LiteLLM_ErrorLogs|startTime|timestamp without time zone|NO|
+LiteLLM_ErrorLogs|status_code|text|NO|''::text
+LiteLLM_GuardrailsTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_GuardrailsTable|guardrail_id|text|NO|
+LiteLLM_GuardrailsTable|guardrail_info|jsonb|YES|
+LiteLLM_GuardrailsTable|guardrail_name|text|NO|
+LiteLLM_GuardrailsTable|litellm_params|jsonb|NO|
+LiteLLM_GuardrailsTable|reviewed_at|timestamp without time zone|YES|
+LiteLLM_GuardrailsTable|status|text|NO|'active'::text
+LiteLLM_GuardrailsTable|submitted_at|timestamp without time zone|YES|
+LiteLLM_GuardrailsTable|team_id|text|YES|
+LiteLLM_GuardrailsTable|updated_at|timestamp without time zone|NO|
+LiteLLM_HealthCheckTable|checked_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_HealthCheckTable|checked_by|text|YES|
+LiteLLM_HealthCheckTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_HealthCheckTable|details|jsonb|YES|
+LiteLLM_HealthCheckTable|error_message|text|YES|
+LiteLLM_HealthCheckTable|health_check_id|text|NO|
+LiteLLM_HealthCheckTable|healthy_count|integer|NO|0
+LiteLLM_HealthCheckTable|model_id|text|YES|
+LiteLLM_HealthCheckTable|model_name|text|NO|
+LiteLLM_HealthCheckTable|response_time_ms|double precision|YES|
+LiteLLM_HealthCheckTable|status|text|NO|
+LiteLLM_HealthCheckTable|unhealthy_count|integer|NO|0
+LiteLLM_HealthCheckTable|updated_at|timestamp without time zone|NO|
+LiteLLM_InvitationLink|accepted_at|timestamp without time zone|YES|
+LiteLLM_InvitationLink|created_at|timestamp without time zone|NO|
+LiteLLM_InvitationLink|created_by|text|NO|
+LiteLLM_InvitationLink|expires_at|timestamp without time zone|NO|
+LiteLLM_InvitationLink|id|text|NO|
+LiteLLM_InvitationLink|is_accepted|boolean|NO|false
+LiteLLM_InvitationLink|updated_at|timestamp without time zone|NO|
+LiteLLM_InvitationLink|updated_by|text|NO|
+LiteLLM_InvitationLink|user_id|text|NO|
+LiteLLM_JWTKeyMapping|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_JWTKeyMapping|created_by|text|YES|
+LiteLLM_JWTKeyMapping|description|text|YES|
+LiteLLM_JWTKeyMapping|id|text|NO|
+LiteLLM_JWTKeyMapping|is_active|boolean|NO|true
+LiteLLM_JWTKeyMapping|jwt_claim_name|text|NO|
+LiteLLM_JWTKeyMapping|jwt_claim_value|text|NO|
+LiteLLM_JWTKeyMapping|token|text|NO|
+LiteLLM_JWTKeyMapping|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_JWTKeyMapping|updated_by|text|YES|
+LiteLLM_MCPServerTable|alias|text|YES|
+LiteLLM_MCPServerTable|allow_all_keys|boolean|NO|false
+LiteLLM_MCPServerTable|allowed_tools|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_MCPServerTable|approval_status|text|YES|'active'::text
+LiteLLM_MCPServerTable|args|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_MCPServerTable|auth_type|text|YES|
+LiteLLM_MCPServerTable|authorization_url|text|YES|
+LiteLLM_MCPServerTable|available_on_public_internet|boolean|NO|true
+LiteLLM_MCPServerTable|byok_api_key_help_url|text|YES|
+LiteLLM_MCPServerTable|byok_description|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_MCPServerTable|command|text|YES|
+LiteLLM_MCPServerTable|created_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+LiteLLM_MCPServerTable|created_by|text|YES|
+LiteLLM_MCPServerTable|credentials|jsonb|YES|'{}'::jsonb
+LiteLLM_MCPServerTable|description|text|YES|
+LiteLLM_MCPServerTable|env|jsonb|YES|'{}'::jsonb
+LiteLLM_MCPServerTable|extra_headers|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_MCPServerTable|health_check_error|text|YES|
+LiteLLM_MCPServerTable|instructions|text|YES|
+LiteLLM_MCPServerTable|is_byok|boolean|NO|false
+LiteLLM_MCPServerTable|last_health_check|timestamp without time zone|YES|
+LiteLLM_MCPServerTable|mcp_access_groups|ARRAY|YES|
+LiteLLM_MCPServerTable|mcp_info|jsonb|YES|'{}'::jsonb
+LiteLLM_MCPServerTable|registration_url|text|YES|
+LiteLLM_MCPServerTable|review_notes|text|YES|
+LiteLLM_MCPServerTable|reviewed_at|timestamp without time zone|YES|
+LiteLLM_MCPServerTable|server_id|text|NO|
+LiteLLM_MCPServerTable|server_name|text|YES|
+LiteLLM_MCPServerTable|source_url|text|YES|
+LiteLLM_MCPServerTable|spec_path|text|YES|
+LiteLLM_MCPServerTable|static_headers|jsonb|YES|'{}'::jsonb
+LiteLLM_MCPServerTable|status|text|YES|'unknown'::text
+LiteLLM_MCPServerTable|submitted_at|timestamp without time zone|YES|
+LiteLLM_MCPServerTable|submitted_by|text|YES|
+LiteLLM_MCPServerTable|token_url|text|YES|
+LiteLLM_MCPServerTable|tool_name_to_description|jsonb|YES|'{}'::jsonb
+LiteLLM_MCPServerTable|tool_name_to_display_name|jsonb|YES|'{}'::jsonb
+LiteLLM_MCPServerTable|transport|text|NO|'sse'::text
+LiteLLM_MCPServerTable|updated_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+LiteLLM_MCPServerTable|updated_by|text|YES|
+LiteLLM_MCPServerTable|url|text|YES|
+LiteLLM_MCPToolsetTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_MCPToolsetTable|created_by|text|YES|
+LiteLLM_MCPToolsetTable|description|text|YES|
+LiteLLM_MCPToolsetTable|tools|jsonb|NO|'[]'::jsonb
+LiteLLM_MCPToolsetTable|toolset_id|text|NO|
+LiteLLM_MCPToolsetTable|toolset_name|text|NO|
+LiteLLM_MCPToolsetTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_MCPToolsetTable|updated_by|text|YES|
+LiteLLM_MCPUserCredentials|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_MCPUserCredentials|credential_b64|text|NO|
+LiteLLM_MCPUserCredentials|id|text|NO|
+LiteLLM_MCPUserCredentials|server_id|text|NO|
+LiteLLM_MCPUserCredentials|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_MCPUserCredentials|user_id|text|NO|
+LiteLLM_ManagedFileTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_ManagedFileTable|created_by|text|YES|
+LiteLLM_ManagedFileTable|file_object|jsonb|YES|
+LiteLLM_ManagedFileTable|flat_model_file_ids|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_ManagedFileTable|id|text|NO|
+LiteLLM_ManagedFileTable|model_mappings|jsonb|NO|
+LiteLLM_ManagedFileTable|storage_backend|text|YES|
+LiteLLM_ManagedFileTable|storage_url|text|YES|
+LiteLLM_ManagedFileTable|unified_file_id|text|NO|
+LiteLLM_ManagedFileTable|updated_at|timestamp without time zone|NO|
+LiteLLM_ManagedFileTable|updated_by|text|YES|
+LiteLLM_ManagedObjectTable|batch_processed|boolean|NO|false
+LiteLLM_ManagedObjectTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_ManagedObjectTable|created_by|text|YES|
+LiteLLM_ManagedObjectTable|file_object|jsonb|NO|
+LiteLLM_ManagedObjectTable|file_purpose|text|NO|
+LiteLLM_ManagedObjectTable|id|text|NO|
+LiteLLM_ManagedObjectTable|model_object_id|text|NO|
+LiteLLM_ManagedObjectTable|status|text|YES|
+LiteLLM_ManagedObjectTable|unified_object_id|text|NO|
+LiteLLM_ManagedObjectTable|updated_at|timestamp without time zone|NO|
+LiteLLM_ManagedObjectTable|updated_by|text|YES|
+LiteLLM_ManagedVectorStoreIndexTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_ManagedVectorStoreIndexTable|created_by|text|YES|
+LiteLLM_ManagedVectorStoreIndexTable|id|text|NO|
+LiteLLM_ManagedVectorStoreIndexTable|index_info|jsonb|YES|
+LiteLLM_ManagedVectorStoreIndexTable|index_name|text|NO|
+LiteLLM_ManagedVectorStoreIndexTable|litellm_params|jsonb|NO|
+LiteLLM_ManagedVectorStoreIndexTable|updated_at|timestamp without time zone|NO|
+LiteLLM_ManagedVectorStoreIndexTable|updated_by|text|YES|
+LiteLLM_ManagedVectorStoreTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_ManagedVectorStoreTable|created_by|text|YES|
+LiteLLM_ManagedVectorStoreTable|flat_model_resource_ids|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_ManagedVectorStoreTable|id|text|NO|
+LiteLLM_ManagedVectorStoreTable|model_mappings|jsonb|NO|
+LiteLLM_ManagedVectorStoreTable|resource_object|jsonb|YES|
+LiteLLM_ManagedVectorStoreTable|storage_backend|text|YES|
+LiteLLM_ManagedVectorStoreTable|storage_url|text|YES|
+LiteLLM_ManagedVectorStoreTable|unified_resource_id|text|NO|
+LiteLLM_ManagedVectorStoreTable|updated_at|timestamp without time zone|NO|
+LiteLLM_ManagedVectorStoreTable|updated_by|text|YES|
+LiteLLM_ManagedVectorStoresTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_ManagedVectorStoresTable|custom_llm_provider|text|NO|
+LiteLLM_ManagedVectorStoresTable|litellm_credential_name|text|YES|
+LiteLLM_ManagedVectorStoresTable|litellm_params|jsonb|YES|
+LiteLLM_ManagedVectorStoresTable|team_id|text|YES|
+LiteLLM_ManagedVectorStoresTable|updated_at|timestamp without time zone|NO|
+LiteLLM_ManagedVectorStoresTable|user_id|text|YES|
+LiteLLM_ManagedVectorStoresTable|vector_store_description|text|YES|
+LiteLLM_ManagedVectorStoresTable|vector_store_id|text|NO|
+LiteLLM_ManagedVectorStoresTable|vector_store_metadata|jsonb|YES|
+LiteLLM_ManagedVectorStoresTable|vector_store_name|text|YES|
+LiteLLM_MemoryTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_MemoryTable|created_by|text|YES|
+LiteLLM_MemoryTable|key|text|NO|
+LiteLLM_MemoryTable|memory_id|text|NO|
+LiteLLM_MemoryTable|metadata|jsonb|YES|
+LiteLLM_MemoryTable|team_id|text|YES|
+LiteLLM_MemoryTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_MemoryTable|updated_by|text|YES|
+LiteLLM_MemoryTable|user_id|text|YES|
+LiteLLM_MemoryTable|value|text|NO|
+LiteLLM_ModelTable|aliases|jsonb|YES|
+LiteLLM_ModelTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_ModelTable|created_by|text|NO|
+LiteLLM_ModelTable|id|integer|NO|nextval('"LiteLLM_ModelTable_id_seq"'::regclass)
+LiteLLM_ModelTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_ModelTable|updated_by|text|NO|
+LiteLLM_ObjectPermissionTable|agent_access_groups|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_ObjectPermissionTable|agents|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_ObjectPermissionTable|blocked_tools|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_ObjectPermissionTable|mcp_access_groups|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_ObjectPermissionTable|mcp_servers|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_ObjectPermissionTable|mcp_tool_permissions|jsonb|YES|
+LiteLLM_ObjectPermissionTable|mcp_toolsets|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_ObjectPermissionTable|models|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_ObjectPermissionTable|object_permission_id|text|NO|
+LiteLLM_ObjectPermissionTable|vector_stores|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_OrganizationMembership|budget_id|text|YES|
+LiteLLM_OrganizationMembership|created_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+LiteLLM_OrganizationMembership|organization_id|text|NO|
+LiteLLM_OrganizationMembership|spend|double precision|YES|0.0
+LiteLLM_OrganizationMembership|updated_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+LiteLLM_OrganizationMembership|user_id|text|NO|
+LiteLLM_OrganizationMembership|user_role|text|YES|
+LiteLLM_OrganizationTable|budget_id|text|NO|
+LiteLLM_OrganizationTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_OrganizationTable|created_by|text|NO|
+LiteLLM_OrganizationTable|metadata|jsonb|NO|'{}'::jsonb
+LiteLLM_OrganizationTable|model_spend|jsonb|NO|'{}'::jsonb
+LiteLLM_OrganizationTable|models|ARRAY|YES|
+LiteLLM_OrganizationTable|object_permission_id|text|YES|
+LiteLLM_OrganizationTable|organization_alias|text|NO|
+LiteLLM_OrganizationTable|organization_id|text|NO|
+LiteLLM_OrganizationTable|spend|double precision|NO|0.0
+LiteLLM_OrganizationTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_OrganizationTable|updated_by|text|NO|
+LiteLLM_PolicyAttachmentTable|attachment_id|text|NO|
+LiteLLM_PolicyAttachmentTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_PolicyAttachmentTable|created_by|text|YES|
+LiteLLM_PolicyAttachmentTable|keys|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_PolicyAttachmentTable|models|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_PolicyAttachmentTable|policy_name|text|NO|
+LiteLLM_PolicyAttachmentTable|scope|text|YES|
+LiteLLM_PolicyAttachmentTable|tags|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_PolicyAttachmentTable|teams|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_PolicyAttachmentTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_PolicyAttachmentTable|updated_by|text|YES|
+LiteLLM_PolicyTable|condition|jsonb|YES|'{}'::jsonb
+LiteLLM_PolicyTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_PolicyTable|created_by|text|YES|
+LiteLLM_PolicyTable|description|text|YES|
+LiteLLM_PolicyTable|guardrails_add|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_PolicyTable|guardrails_remove|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_PolicyTable|inherit|text|YES|
+LiteLLM_PolicyTable|is_latest|boolean|NO|true
+LiteLLM_PolicyTable|parent_version_id|text|YES|
+LiteLLM_PolicyTable|pipeline|jsonb|YES|
+LiteLLM_PolicyTable|policy_id|text|NO|
+LiteLLM_PolicyTable|policy_name|text|NO|
+LiteLLM_PolicyTable|production_at|timestamp without time zone|YES|
+LiteLLM_PolicyTable|published_at|timestamp without time zone|YES|
+LiteLLM_PolicyTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_PolicyTable|updated_by|text|YES|
+LiteLLM_PolicyTable|version_number|integer|NO|1
+LiteLLM_PolicyTable|version_status|text|NO|'production'::text
+LiteLLM_ProjectTable|blocked|boolean|NO|false
+LiteLLM_ProjectTable|budget_id|text|YES|
+LiteLLM_ProjectTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_ProjectTable|created_by|text|NO|
+LiteLLM_ProjectTable|description|text|YES|
+LiteLLM_ProjectTable|metadata|jsonb|NO|'{}'::jsonb
+LiteLLM_ProjectTable|model_rpm_limit|jsonb|NO|'{}'::jsonb
+LiteLLM_ProjectTable|model_spend|jsonb|NO|'{}'::jsonb
+LiteLLM_ProjectTable|model_tpm_limit|jsonb|NO|'{}'::jsonb
+LiteLLM_ProjectTable|models|ARRAY|YES|
+LiteLLM_ProjectTable|object_permission_id|text|YES|
+LiteLLM_ProjectTable|project_alias|text|YES|
+LiteLLM_ProjectTable|project_id|text|NO|
+LiteLLM_ProjectTable|spend|double precision|NO|0.0
+LiteLLM_ProjectTable|team_id|text|YES|
+LiteLLM_ProjectTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_ProjectTable|updated_by|text|NO|
+LiteLLM_PromptTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_PromptTable|created_by|text|YES|
+LiteLLM_PromptTable|environment|text|NO|'development'::text
+LiteLLM_PromptTable|id|text|NO|
+LiteLLM_PromptTable|litellm_params|jsonb|NO|
+LiteLLM_PromptTable|prompt_id|text|NO|
+LiteLLM_PromptTable|prompt_info|jsonb|YES|
+LiteLLM_PromptTable|updated_at|timestamp without time zone|NO|
+LiteLLM_PromptTable|version|integer|NO|1
+LiteLLM_ProxyModelTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_ProxyModelTable|created_by|text|NO|
+LiteLLM_ProxyModelTable|litellm_params|jsonb|NO|
+LiteLLM_ProxyModelTable|model_id|text|NO|
+LiteLLM_ProxyModelTable|model_info|jsonb|YES|
+LiteLLM_ProxyModelTable|model_name|text|NO|
+LiteLLM_ProxyModelTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_ProxyModelTable|updated_by|text|NO|
+LiteLLM_SSOConfig|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_SSOConfig|id|text|NO|'sso_config'::text
+LiteLLM_SSOConfig|sso_settings|jsonb|NO|
+LiteLLM_SSOConfig|updated_at|timestamp without time zone|NO|
+LiteLLM_SearchToolsTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_SearchToolsTable|litellm_params|jsonb|NO|
+LiteLLM_SearchToolsTable|search_tool_id|text|NO|
+LiteLLM_SearchToolsTable|search_tool_info|jsonb|YES|
+LiteLLM_SearchToolsTable|search_tool_name|text|NO|
+LiteLLM_SearchToolsTable|updated_at|timestamp without time zone|NO|
+LiteLLM_SkillsTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_SkillsTable|created_by|text|YES|
+LiteLLM_SkillsTable|description|text|YES|
+LiteLLM_SkillsTable|display_title|text|YES|
+LiteLLM_SkillsTable|file_content|bytea|YES|
+LiteLLM_SkillsTable|file_name|text|YES|
+LiteLLM_SkillsTable|file_type|text|YES|
+LiteLLM_SkillsTable|instructions|text|YES|
+LiteLLM_SkillsTable|latest_version|text|YES|
+LiteLLM_SkillsTable|metadata|jsonb|YES|'{}'::jsonb
+LiteLLM_SkillsTable|skill_id|text|NO|
+LiteLLM_SkillsTable|source|text|NO|'custom'::text
+LiteLLM_SkillsTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_SkillsTable|updated_by|text|YES|
+LiteLLM_SpendLogGuardrailIndex|guardrail_id|text|NO|
+LiteLLM_SpendLogGuardrailIndex|policy_id|text|YES|
+LiteLLM_SpendLogGuardrailIndex|request_id|text|NO|
+LiteLLM_SpendLogGuardrailIndex|start_time|timestamp without time zone|NO|
+LiteLLM_SpendLogToolIndex|request_id|text|NO|
+LiteLLM_SpendLogToolIndex|start_time|timestamp without time zone|NO|
+LiteLLM_SpendLogToolIndex|tool_name|text|NO|
+LiteLLM_SpendLogs|agent_id|text|YES|
+LiteLLM_SpendLogs|api_base|text|YES|''::text
+LiteLLM_SpendLogs|api_key|text|NO|''::text
+LiteLLM_SpendLogs|cache_hit|text|YES|''::text
+LiteLLM_SpendLogs|cache_key|text|YES|''::text
+LiteLLM_SpendLogs|call_type|text|NO|
+LiteLLM_SpendLogs|completionStartTime|timestamp without time zone|YES|
+LiteLLM_SpendLogs|completion_tokens|integer|NO|0
+LiteLLM_SpendLogs|custom_llm_provider|text|YES|''::text
+LiteLLM_SpendLogs|endTime|timestamp without time zone|NO|
+LiteLLM_SpendLogs|end_user|text|YES|
+LiteLLM_SpendLogs|mcp_namespaced_tool_name|text|YES|
+LiteLLM_SpendLogs|messages|jsonb|YES|'{}'::jsonb
+LiteLLM_SpendLogs|metadata|jsonb|YES|'{}'::jsonb
+LiteLLM_SpendLogs|model|text|NO|''::text
+LiteLLM_SpendLogs|model_group|text|YES|''::text
+LiteLLM_SpendLogs|model_id|text|YES|''::text
+LiteLLM_SpendLogs|organization_id|text|YES|
+LiteLLM_SpendLogs|prompt_tokens|integer|NO|0
+LiteLLM_SpendLogs|proxy_server_request|jsonb|YES|'{}'::jsonb
+LiteLLM_SpendLogs|request_duration_ms|integer|YES|
+LiteLLM_SpendLogs|request_id|text|NO|
+LiteLLM_SpendLogs|request_tags|jsonb|YES|'[]'::jsonb
+LiteLLM_SpendLogs|requester_ip_address|text|YES|
+LiteLLM_SpendLogs|response|jsonb|YES|'{}'::jsonb
+LiteLLM_SpendLogs|session_id|text|YES|
+LiteLLM_SpendLogs|spend|double precision|NO|0.0
+LiteLLM_SpendLogs|startTime|timestamp without time zone|NO|
+LiteLLM_SpendLogs|status|text|YES|
+LiteLLM_SpendLogs|team_id|text|YES|
+LiteLLM_SpendLogs|total_tokens|integer|NO|0
+LiteLLM_SpendLogs|user|text|YES|''::text
+LiteLLM_TagTable|budget_id|text|YES|
+LiteLLM_TagTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_TagTable|created_by|text|YES|
+LiteLLM_TagTable|description|text|YES|
+LiteLLM_TagTable|model_info|jsonb|YES|
+LiteLLM_TagTable|models|ARRAY|YES|
+LiteLLM_TagTable|spend|double precision|NO|0.0
+LiteLLM_TagTable|tag_name|text|NO|
+LiteLLM_TagTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_TeamMembership|budget_id|text|YES|
+LiteLLM_TeamMembership|spend|double precision|NO|0.0
+LiteLLM_TeamMembership|team_id|text|NO|
+LiteLLM_TeamMembership|total_spend|double precision|NO|0.0
+LiteLLM_TeamMembership|user_id|text|NO|
+LiteLLM_TeamTable|access_group_ids|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_TeamTable|admins|ARRAY|YES|
+LiteLLM_TeamTable|allow_team_guardrail_config|boolean|NO|false
+LiteLLM_TeamTable|blocked|boolean|NO|false
+LiteLLM_TeamTable|budget_duration|text|YES|
+LiteLLM_TeamTable|budget_limits|jsonb|YES|
+LiteLLM_TeamTable|budget_reset_at|timestamp without time zone|YES|
+LiteLLM_TeamTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_TeamTable|default_team_member_models|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_TeamTable|max_budget|double precision|YES|
+LiteLLM_TeamTable|max_parallel_requests|integer|YES|
+LiteLLM_TeamTable|members|ARRAY|YES|
+LiteLLM_TeamTable|members_with_roles|jsonb|NO|'{}'::jsonb
+LiteLLM_TeamTable|metadata|jsonb|NO|'{}'::jsonb
+LiteLLM_TeamTable|model_id|integer|YES|
+LiteLLM_TeamTable|model_max_budget|jsonb|NO|'{}'::jsonb
+LiteLLM_TeamTable|model_spend|jsonb|NO|'{}'::jsonb
+LiteLLM_TeamTable|models|ARRAY|YES|
+LiteLLM_TeamTable|object_permission_id|text|YES|
+LiteLLM_TeamTable|organization_id|text|YES|
+LiteLLM_TeamTable|policies|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_TeamTable|router_settings|jsonb|YES|'{}'::jsonb
+LiteLLM_TeamTable|rpm_limit|bigint|YES|
+LiteLLM_TeamTable|soft_budget|double precision|YES|
+LiteLLM_TeamTable|spend|double precision|NO|0.0
+LiteLLM_TeamTable|team_alias|text|YES|
+LiteLLM_TeamTable|team_id|text|NO|
+LiteLLM_TeamTable|team_member_permissions|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_TeamTable|tpm_limit|bigint|YES|
+LiteLLM_TeamTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_ToolTable|assignments|jsonb|YES|'{}'::jsonb
+LiteLLM_ToolTable|call_count|integer|NO|0
+LiteLLM_ToolTable|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_ToolTable|created_by|text|YES|
+LiteLLM_ToolTable|input_policy|text|NO|'untrusted'::text
+LiteLLM_ToolTable|key_alias|text|YES|
+LiteLLM_ToolTable|key_hash|text|YES|
+LiteLLM_ToolTable|last_used_at|timestamp without time zone|YES|
+LiteLLM_ToolTable|origin|text|YES|
+LiteLLM_ToolTable|output_policy|text|NO|'untrusted'::text
+LiteLLM_ToolTable|team_id|text|YES|
+LiteLLM_ToolTable|tool_id|text|NO|
+LiteLLM_ToolTable|tool_name|text|NO|
+LiteLLM_ToolTable|updated_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_ToolTable|updated_by|text|YES|
+LiteLLM_ToolTable|user_agent|text|YES|
+LiteLLM_UISettings|created_at|timestamp without time zone|NO|CURRENT_TIMESTAMP
+LiteLLM_UISettings|id|text|NO|'ui_settings'::text
+LiteLLM_UISettings|ui_settings|jsonb|NO|
+LiteLLM_UISettings|updated_at|timestamp without time zone|NO|
+LiteLLM_UserNotifications|justification|text|NO|
+LiteLLM_UserNotifications|models|ARRAY|YES|
+LiteLLM_UserNotifications|request_id|text|NO|
+LiteLLM_UserNotifications|status|text|NO|
+LiteLLM_UserNotifications|user_id|text|NO|
+LiteLLM_UserTable|allowed_cache_controls|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_UserTable|budget_duration|text|YES|
+LiteLLM_UserTable|budget_reset_at|timestamp without time zone|YES|
+LiteLLM_UserTable|created_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+LiteLLM_UserTable|max_budget|double precision|YES|
+LiteLLM_UserTable|max_parallel_requests|integer|YES|
+LiteLLM_UserTable|metadata|jsonb|NO|'{}'::jsonb
+LiteLLM_UserTable|model_max_budget|jsonb|NO|'{}'::jsonb
+LiteLLM_UserTable|model_spend|jsonb|NO|'{}'::jsonb
+LiteLLM_UserTable|models|ARRAY|YES|
+LiteLLM_UserTable|object_permission_id|text|YES|
+LiteLLM_UserTable|organization_id|text|YES|
+LiteLLM_UserTable|password|text|YES|
+LiteLLM_UserTable|policies|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_UserTable|rpm_limit|bigint|YES|
+LiteLLM_UserTable|spend|double precision|NO|0.0
+LiteLLM_UserTable|sso_user_id|text|YES|
+LiteLLM_UserTable|team_id|text|YES|
+LiteLLM_UserTable|teams|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_UserTable|tpm_limit|bigint|YES|
+LiteLLM_UserTable|updated_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+LiteLLM_UserTable|user_alias|text|YES|
+LiteLLM_UserTable|user_email|text|YES|
+LiteLLM_UserTable|user_id|text|NO|
+LiteLLM_UserTable|user_role|text|YES|
+LiteLLM_VerificationToken|access_group_ids|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_VerificationToken|agent_id|text|YES|
+LiteLLM_VerificationToken|aliases|jsonb|NO|'{}'::jsonb
+LiteLLM_VerificationToken|allowed_cache_controls|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_VerificationToken|allowed_routes|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_VerificationToken|auto_rotate|boolean|YES|false
+LiteLLM_VerificationToken|blocked|boolean|YES|
+LiteLLM_VerificationToken|budget_duration|text|YES|
+LiteLLM_VerificationToken|budget_id|text|YES|
+LiteLLM_VerificationToken|budget_limits|jsonb|YES|
+LiteLLM_VerificationToken|budget_reset_at|timestamp without time zone|YES|
+LiteLLM_VerificationToken|config|jsonb|NO|'{}'::jsonb
+LiteLLM_VerificationToken|created_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+LiteLLM_VerificationToken|created_by|text|YES|
+LiteLLM_VerificationToken|expires|timestamp without time zone|YES|
+LiteLLM_VerificationToken|key_alias|text|YES|
+LiteLLM_VerificationToken|key_name|text|YES|
+LiteLLM_VerificationToken|key_rotation_at|timestamp without time zone|YES|
+LiteLLM_VerificationToken|last_active|timestamp without time zone|YES|
+LiteLLM_VerificationToken|last_rotation_at|timestamp without time zone|YES|
+LiteLLM_VerificationToken|max_budget|double precision|YES|
+LiteLLM_VerificationToken|max_parallel_requests|integer|YES|
+LiteLLM_VerificationToken|metadata|jsonb|NO|'{}'::jsonb
+LiteLLM_VerificationToken|model_max_budget|jsonb|NO|'{}'::jsonb
+LiteLLM_VerificationToken|model_spend|jsonb|NO|'{}'::jsonb
+LiteLLM_VerificationToken|models|ARRAY|YES|
+LiteLLM_VerificationToken|object_permission_id|text|YES|
+LiteLLM_VerificationToken|organization_id|text|YES|
+LiteLLM_VerificationToken|permissions|jsonb|NO|'{}'::jsonb
+LiteLLM_VerificationToken|policies|ARRAY|YES|ARRAY[]::text[]
+LiteLLM_VerificationToken|project_id|text|YES|
+LiteLLM_VerificationToken|rotation_count|integer|YES|0
+LiteLLM_VerificationToken|rotation_interval|text|YES|
+LiteLLM_VerificationToken|router_settings|jsonb|YES|'{}'::jsonb
+LiteLLM_VerificationToken|rpm_limit|bigint|YES|
+LiteLLM_VerificationToken|soft_budget_cooldown|boolean|NO|false
+LiteLLM_VerificationToken|spend|double precision|NO|0.0
+LiteLLM_VerificationToken|team_id|text|YES|
+LiteLLM_VerificationToken|token|text|NO|
+LiteLLM_VerificationToken|tpm_limit|bigint|YES|
+LiteLLM_VerificationToken|updated_at|timestamp without time zone|YES|CURRENT_TIMESTAMP
+LiteLLM_VerificationToken|updated_by|text|YES|
+LiteLLM_VerificationToken|user_id|text|YES|
+LiteLLM_VerificationTokenView|aliases|jsonb|YES|
+LiteLLM_VerificationTokenView|allowed_cache_controls|ARRAY|YES|
+LiteLLM_VerificationTokenView|allowed_routes|ARRAY|YES|
+LiteLLM_VerificationTokenView|auto_rotate|boolean|YES|
+LiteLLM_VerificationTokenView|blocked|boolean|YES|
+LiteLLM_VerificationTokenView|budget_duration|text|YES|
+LiteLLM_VerificationTokenView|budget_id|text|YES|
+LiteLLM_VerificationTokenView|budget_reset_at|timestamp without time zone|YES|
+LiteLLM_VerificationTokenView|config|jsonb|YES|
+LiteLLM_VerificationTokenView|created_at|timestamp without time zone|YES|
+LiteLLM_VerificationTokenView|created_by|text|YES|
+LiteLLM_VerificationTokenView|expires|timestamp without time zone|YES|
+LiteLLM_VerificationTokenView|key_alias|text|YES|
+LiteLLM_VerificationTokenView|key_name|text|YES|
+LiteLLM_VerificationTokenView|key_rotation_at|timestamp without time zone|YES|
+LiteLLM_VerificationTokenView|last_rotation_at|timestamp without time zone|YES|
+LiteLLM_VerificationTokenView|max_budget|double precision|YES|
+LiteLLM_VerificationTokenView|max_parallel_requests|integer|YES|
+LiteLLM_VerificationTokenView|metadata|jsonb|YES|
+LiteLLM_VerificationTokenView|model_max_budget|jsonb|YES|
+LiteLLM_VerificationTokenView|model_spend|jsonb|YES|
+LiteLLM_VerificationTokenView|models|ARRAY|YES|
+LiteLLM_VerificationTokenView|object_permission_id|text|YES|
+LiteLLM_VerificationTokenView|organization_id|text|YES|
+LiteLLM_VerificationTokenView|permissions|jsonb|YES|
+LiteLLM_VerificationTokenView|rotation_count|integer|YES|
+LiteLLM_VerificationTokenView|rotation_interval|text|YES|
+LiteLLM_VerificationTokenView|rpm_limit|bigint|YES|
+LiteLLM_VerificationTokenView|soft_budget_cooldown|boolean|YES|
+LiteLLM_VerificationTokenView|spend|double precision|YES|
+LiteLLM_VerificationTokenView|team_id|text|YES|
+LiteLLM_VerificationTokenView|team_max_budget|double precision|YES|
+LiteLLM_VerificationTokenView|team_rpm_limit|bigint|YES|
+LiteLLM_VerificationTokenView|team_spend|double precision|YES|
+LiteLLM_VerificationTokenView|team_tpm_limit|bigint|YES|
+LiteLLM_VerificationTokenView|token|text|YES|
+LiteLLM_VerificationTokenView|tpm_limit|bigint|YES|
+LiteLLM_VerificationTokenView|updated_at|timestamp without time zone|YES|
+LiteLLM_VerificationTokenView|updated_by|text|YES|
+LiteLLM_VerificationTokenView|user_id|text|YES|
+MonthlyGlobalSpend|date|date|YES|
+MonthlyGlobalSpend|spend|double precision|YES|
+MonthlyGlobalSpendPerKey|api_key|text|YES|
+MonthlyGlobalSpendPerKey|date|date|YES|
+MonthlyGlobalSpendPerKey|spend|double precision|YES|
+MonthlyGlobalSpendPerUserPerKey|api_key|text|YES|
+MonthlyGlobalSpendPerUserPerKey|date|date|YES|
+MonthlyGlobalSpendPerUserPerKey|spend|double precision|YES|
+MonthlyGlobalSpendPerUserPerKey|user|text|YES|
+_prisma_migrations|applied_steps_count|integer|NO|0
+_prisma_migrations|checksum|character varying|NO|
+_prisma_migrations|finished_at|timestamp with time zone|YES|
+_prisma_migrations|id|character varying|NO|
+_prisma_migrations|logs|text|YES|
+_prisma_migrations|migration_name|character varying|NO|
+_prisma_migrations|rolled_back_at|timestamp with time zone|YES|
+_prisma_migrations|started_at|timestamp with time zone|NO|now()
+### PRIMARY_KEYS -- table|col
+LiteLLM_AccessGroupTable|access_group_id
+LiteLLM_AdaptiveRouterSession|model_name
+LiteLLM_AdaptiveRouterSession|router_name
+LiteLLM_AdaptiveRouterSession|session_id
+LiteLLM_AdaptiveRouterState|model_name
+LiteLLM_AdaptiveRouterState|request_type
+LiteLLM_AdaptiveRouterState|router_name
+LiteLLM_AgentsTable|agent_id
+LiteLLM_AuditLog|id
+LiteLLM_BudgetTable|budget_id
+LiteLLM_CacheConfig|id
+LiteLLM_ClaudeCodePluginTable|id
+LiteLLM_Config|param_name
+LiteLLM_ConfigOverrides|config_type
+LiteLLM_CredentialsTable|credential_id
+LiteLLM_CronJob|cronjob_id
+LiteLLM_DailyAgentSpend|id
+LiteLLM_DailyEndUserSpend|id
+LiteLLM_DailyGuardrailMetrics|date
+LiteLLM_DailyGuardrailMetrics|guardrail_id
+LiteLLM_DailyOrganizationSpend|id
+LiteLLM_DailyPolicyMetrics|date
+LiteLLM_DailyPolicyMetrics|policy_id
+LiteLLM_DailyTagSpend|id
+LiteLLM_DailyTeamSpend|id
+LiteLLM_DailyUserSpend|id
+LiteLLM_DeletedTeamTable|id
+LiteLLM_DeletedVerificationToken|id
+LiteLLM_DeprecatedVerificationToken|id
+LiteLLM_EndUserTable|user_id
+LiteLLM_ErrorLogs|request_id
+LiteLLM_GuardrailsTable|guardrail_id
+LiteLLM_HealthCheckTable|health_check_id
+LiteLLM_InvitationLink|id
+LiteLLM_JWTKeyMapping|id
+LiteLLM_MCPServerTable|server_id
+LiteLLM_MCPToolsetTable|toolset_id
+LiteLLM_MCPUserCredentials|id
+LiteLLM_ManagedFileTable|id
+LiteLLM_ManagedObjectTable|id
+LiteLLM_ManagedVectorStoreIndexTable|id
+LiteLLM_ManagedVectorStoreTable|id
+LiteLLM_ManagedVectorStoresTable|vector_store_id
+LiteLLM_MemoryTable|memory_id
+LiteLLM_ModelTable|id
+LiteLLM_ObjectPermissionTable|object_permission_id
+LiteLLM_OrganizationMembership|organization_id
+LiteLLM_OrganizationMembership|user_id
+LiteLLM_OrganizationTable|organization_id
+LiteLLM_PolicyAttachmentTable|attachment_id
+LiteLLM_PolicyTable|policy_id
+LiteLLM_ProjectTable|project_id
+LiteLLM_PromptTable|id
+LiteLLM_ProxyModelTable|model_id
+LiteLLM_SSOConfig|id
+LiteLLM_SearchToolsTable|search_tool_id
+LiteLLM_SkillsTable|skill_id
+LiteLLM_SpendLogGuardrailIndex|guardrail_id
+LiteLLM_SpendLogGuardrailIndex|request_id
+LiteLLM_SpendLogToolIndex|request_id
+LiteLLM_SpendLogToolIndex|tool_name
+LiteLLM_SpendLogs|request_id
+LiteLLM_TagTable|tag_name
+LiteLLM_TeamMembership|team_id
+LiteLLM_TeamMembership|user_id
+LiteLLM_TeamTable|team_id
+LiteLLM_ToolTable|tool_id
+LiteLLM_UISettings|id
+LiteLLM_UserNotifications|request_id
+LiteLLM_UserTable|user_id
+LiteLLM_VerificationToken|token
+_prisma_migrations|id
+### FOREIGN_KEYS -- table|col->reftable.refcol (on delete)
+LiteLLM_AgentsTable|object_permission_id->LiteLLM_ObjectPermissionTable.object_permission_id (SET NULL)
+LiteLLM_EndUserTable|budget_id->LiteLLM_BudgetTable.budget_id (SET NULL)
+LiteLLM_EndUserTable|object_permission_id->LiteLLM_ObjectPermissionTable.object_permission_id (SET NULL)
+LiteLLM_InvitationLink|created_by->LiteLLM_UserTable.user_id (RESTRICT)
+LiteLLM_InvitationLink|updated_by->LiteLLM_UserTable.user_id (RESTRICT)
+LiteLLM_InvitationLink|user_id->LiteLLM_UserTable.user_id (RESTRICT)
+LiteLLM_JWTKeyMapping|token->LiteLLM_VerificationToken.token (RESTRICT)
+LiteLLM_OrganizationMembership|budget_id->LiteLLM_BudgetTable.budget_id (SET NULL)
+LiteLLM_OrganizationMembership|organization_id->LiteLLM_OrganizationTable.organization_id (RESTRICT)
+LiteLLM_OrganizationMembership|user_id->LiteLLM_UserTable.user_id (RESTRICT)
+LiteLLM_OrganizationTable|budget_id->LiteLLM_BudgetTable.budget_id (RESTRICT)
+LiteLLM_OrganizationTable|object_permission_id->LiteLLM_ObjectPermissionTable.object_permission_id (SET NULL)
+LiteLLM_ProjectTable|budget_id->LiteLLM_BudgetTable.budget_id (SET NULL)
+LiteLLM_ProjectTable|object_permission_id->LiteLLM_ObjectPermissionTable.object_permission_id (SET NULL)
+LiteLLM_ProjectTable|team_id->LiteLLM_TeamTable.team_id (SET NULL)
+LiteLLM_TagTable|budget_id->LiteLLM_BudgetTable.budget_id (SET NULL)
+LiteLLM_TeamMembership|budget_id->LiteLLM_BudgetTable.budget_id (SET NULL)
+LiteLLM_TeamTable|model_id->LiteLLM_ModelTable.id (SET NULL)
+LiteLLM_TeamTable|object_permission_id->LiteLLM_ObjectPermissionTable.object_permission_id (SET NULL)
+LiteLLM_TeamTable|organization_id->LiteLLM_OrganizationTable.organization_id (SET NULL)
+LiteLLM_UserTable|object_permission_id->LiteLLM_ObjectPermissionTable.object_permission_id (SET NULL)
+LiteLLM_UserTable|organization_id->LiteLLM_OrganizationTable.organization_id (SET NULL)
+LiteLLM_VerificationToken|budget_id->LiteLLM_BudgetTable.budget_id (SET NULL)
+LiteLLM_VerificationToken|object_permission_id->LiteLLM_ObjectPermissionTable.object_permission_id (SET NULL)
+LiteLLM_VerificationToken|organization_id->LiteLLM_OrganizationTable.organization_id (SET NULL)
+LiteLLM_VerificationToken|project_id->LiteLLM_ProjectTable.project_id (SET NULL)
+### INDEXES -- normalized index definitions
+IDX ON public."LiteLLM_AccessGroupTable" USING btree (access_group_id)
+IDX ON public."LiteLLM_AccessGroupTable" USING btree (access_group_name)
+IDX ON public."LiteLLM_AdaptiveRouterSession" USING btree (last_activity_at)
+IDX ON public."LiteLLM_AdaptiveRouterSession" USING btree (session_id, router_name, model_name)
+IDX ON public."LiteLLM_AdaptiveRouterState" USING btree (router_name, request_type, model_name)
+IDX ON public."LiteLLM_AgentsTable" USING btree (agent_id)
+IDX ON public."LiteLLM_AgentsTable" USING btree (agent_name)
+IDX ON public."LiteLLM_AuditLog" USING btree (id)
+IDX ON public."LiteLLM_BudgetTable" USING btree (budget_id)
+IDX ON public."LiteLLM_CacheConfig" USING btree (id)
+IDX ON public."LiteLLM_ClaudeCodePluginTable" USING btree (id)
+IDX ON public."LiteLLM_ClaudeCodePluginTable" USING btree (name)
+IDX ON public."LiteLLM_ConfigOverrides" USING btree (config_type)
+IDX ON public."LiteLLM_Config" USING btree (param_name)
+IDX ON public."LiteLLM_CredentialsTable" USING btree (credential_id)
+IDX ON public."LiteLLM_CredentialsTable" USING btree (credential_name)
+IDX ON public."LiteLLM_CronJob" USING btree (cronjob_id)
+IDX ON public."LiteLLM_DailyAgentSpend" USING btree (agent_id, date)
+IDX ON public."LiteLLM_DailyAgentSpend" USING btree (agent_id, date, api_key, model, custom_llm_provider, mcp_namespaced_tool_name, endpoint)
+IDX ON public."LiteLLM_DailyAgentSpend" USING btree (api_key)
+IDX ON public."LiteLLM_DailyAgentSpend" USING btree (date)
+IDX ON public."LiteLLM_DailyAgentSpend" USING btree (endpoint)
+IDX ON public."LiteLLM_DailyAgentSpend" USING btree (id)
+IDX ON public."LiteLLM_DailyAgentSpend" USING btree (mcp_namespaced_tool_name)
+IDX ON public."LiteLLM_DailyAgentSpend" USING btree (model)
+IDX ON public."LiteLLM_DailyEndUserSpend" USING btree (api_key)
+IDX ON public."LiteLLM_DailyEndUserSpend" USING btree (date)
+IDX ON public."LiteLLM_DailyEndUserSpend" USING btree (endpoint)
+IDX ON public."LiteLLM_DailyEndUserSpend" USING btree (end_user_id, date)
+IDX ON public."LiteLLM_DailyEndUserSpend" USING btree (end_user_id, date, api_key, model, custom_llm_provider, mcp_namespaced_tool_name, endpoint)
+IDX ON public."LiteLLM_DailyEndUserSpend" USING btree (id)
+IDX ON public."LiteLLM_DailyEndUserSpend" USING btree (mcp_namespaced_tool_name)
+IDX ON public."LiteLLM_DailyEndUserSpend" USING btree (model)
+IDX ON public."LiteLLM_DailyGuardrailMetrics" USING btree (date)
+IDX ON public."LiteLLM_DailyGuardrailMetrics" USING btree (guardrail_id)
+IDX ON public."LiteLLM_DailyGuardrailMetrics" USING btree (guardrail_id, date)
+IDX ON public."LiteLLM_DailyOrganizationSpend" USING btree (api_key)
+IDX ON public."LiteLLM_DailyOrganizationSpend" USING btree (date)
+IDX ON public."LiteLLM_DailyOrganizationSpend" USING btree (endpoint)
+IDX ON public."LiteLLM_DailyOrganizationSpend" USING btree (id)
+IDX ON public."LiteLLM_DailyOrganizationSpend" USING btree (mcp_namespaced_tool_name)
+IDX ON public."LiteLLM_DailyOrganizationSpend" USING btree (model)
+IDX ON public."LiteLLM_DailyOrganizationSpend" USING btree (organization_id, date)
+IDX ON public."LiteLLM_DailyOrganizationSpend" USING btree (organization_id, date, api_key, model, custom_llm_provider, mcp_namespaced_tool_name, endpoint)
+IDX ON public."LiteLLM_DailyPolicyMetrics" USING btree (date)
+IDX ON public."LiteLLM_DailyPolicyMetrics" USING btree (policy_id)
+IDX ON public."LiteLLM_DailyPolicyMetrics" USING btree (policy_id, date)
+IDX ON public."LiteLLM_DailyTagSpend" USING btree (api_key)
+IDX ON public."LiteLLM_DailyTagSpend" USING btree (date)
+IDX ON public."LiteLLM_DailyTagSpend" USING btree (endpoint)
+IDX ON public."LiteLLM_DailyTagSpend" USING btree (id)
+IDX ON public."LiteLLM_DailyTagSpend" USING btree (mcp_namespaced_tool_name)
+IDX ON public."LiteLLM_DailyTagSpend" USING btree (model)
+IDX ON public."LiteLLM_DailyTagSpend" USING btree (tag, date)
+IDX ON public."LiteLLM_DailyTagSpend" USING btree (tag, date, api_key, model, custom_llm_provider, mcp_namespaced_tool_name, endpoint)
+IDX ON public."LiteLLM_DailyTeamSpend" USING btree (api_key)
+IDX ON public."LiteLLM_DailyTeamSpend" USING btree (date)
+IDX ON public."LiteLLM_DailyTeamSpend" USING btree (endpoint)
+IDX ON public."LiteLLM_DailyTeamSpend" USING btree (id)
+IDX ON public."LiteLLM_DailyTeamSpend" USING btree (mcp_namespaced_tool_name)
+IDX ON public."LiteLLM_DailyTeamSpend" USING btree (model)
+IDX ON public."LiteLLM_DailyTeamSpend" USING btree (team_id, date)
+IDX ON public."LiteLLM_DailyTeamSpend" USING btree (team_id, date, api_key, model, custom_llm_provider, mcp_namespaced_tool_name, endpoint)
+IDX ON public."LiteLLM_DailyUserSpend" USING btree (api_key)
+IDX ON public."LiteLLM_DailyUserSpend" USING btree (date)
+IDX ON public."LiteLLM_DailyUserSpend" USING btree (endpoint)
+IDX ON public."LiteLLM_DailyUserSpend" USING btree (id)
+IDX ON public."LiteLLM_DailyUserSpend" USING btree (mcp_namespaced_tool_name)
+IDX ON public."LiteLLM_DailyUserSpend" USING btree (model)
+IDX ON public."LiteLLM_DailyUserSpend" USING btree (user_id, date)
+IDX ON public."LiteLLM_DailyUserSpend" USING btree (user_id, date, api_key, model, custom_llm_provider, mcp_namespaced_tool_name, endpoint)
+IDX ON public."LiteLLM_DeletedTeamTable" USING btree (created_at)
+IDX ON public."LiteLLM_DeletedTeamTable" USING btree (deleted_at)
+IDX ON public."LiteLLM_DeletedTeamTable" USING btree (id)
+IDX ON public."LiteLLM_DeletedTeamTable" USING btree (organization_id)
+IDX ON public."LiteLLM_DeletedTeamTable" USING btree (team_alias)
+IDX ON public."LiteLLM_DeletedTeamTable" USING btree (team_id)
+IDX ON public."LiteLLM_DeletedVerificationToken" USING btree (created_at)
+IDX ON public."LiteLLM_DeletedVerificationToken" USING btree (deleted_at)
+IDX ON public."LiteLLM_DeletedVerificationToken" USING btree (id)
+IDX ON public."LiteLLM_DeletedVerificationToken" USING btree (key_alias)
+IDX ON public."LiteLLM_DeletedVerificationToken" USING btree (organization_id)
+IDX ON public."LiteLLM_DeletedVerificationToken" USING btree (team_id)
+IDX ON public."LiteLLM_DeletedVerificationToken" USING btree (token)
+IDX ON public."LiteLLM_DeletedVerificationToken" USING btree (user_id)
+IDX ON public."LiteLLM_DeprecatedVerificationToken" USING btree (id)
+IDX ON public."LiteLLM_DeprecatedVerificationToken" USING btree (revoke_at)
+IDX ON public."LiteLLM_DeprecatedVerificationToken" USING btree (token)
+IDX ON public."LiteLLM_DeprecatedVerificationToken" USING btree (token, revoke_at)
+IDX ON public."LiteLLM_EndUserTable" USING btree (user_id)
+IDX ON public."LiteLLM_ErrorLogs" USING btree (request_id)
+IDX ON public."LiteLLM_GuardrailsTable" USING btree (guardrail_id)
+IDX ON public."LiteLLM_GuardrailsTable" USING btree (guardrail_name)
+IDX ON public."LiteLLM_GuardrailsTable" USING btree (status)
+IDX ON public."LiteLLM_HealthCheckTable" USING btree (checked_at)
+IDX ON public."LiteLLM_HealthCheckTable" USING btree (health_check_id)
+IDX ON public."LiteLLM_HealthCheckTable" USING btree (model_id, model_name, checked_at DESC)
+IDX ON public."LiteLLM_HealthCheckTable" USING btree (model_name)
+IDX ON public."LiteLLM_HealthCheckTable" USING btree (status)
+IDX ON public."LiteLLM_InvitationLink" USING btree (id)
+IDX ON public."LiteLLM_JWTKeyMapping" USING btree (id)
+IDX ON public."LiteLLM_JWTKeyMapping" USING btree (jwt_claim_name, jwt_claim_value)
+IDX ON public."LiteLLM_JWTKeyMapping" USING btree (jwt_claim_name, jwt_claim_value, is_active)
+IDX ON public."LiteLLM_ManagedFileTable" USING btree (id)
+IDX ON public."LiteLLM_ManagedFileTable" USING btree (unified_file_id)
+IDX ON public."LiteLLM_ManagedFileTable" USING btree (unified_file_id)
+IDX ON public."LiteLLM_ManagedObjectTable" USING btree (id)
+IDX ON public."LiteLLM_ManagedObjectTable" USING btree (model_object_id)
+IDX ON public."LiteLLM_ManagedObjectTable" USING btree (model_object_id)
+IDX ON public."LiteLLM_ManagedObjectTable" USING btree (unified_object_id)
+IDX ON public."LiteLLM_ManagedObjectTable" USING btree (unified_object_id)
+IDX ON public."LiteLLM_ManagedVectorStoreIndexTable" USING btree (id)
+IDX ON public."LiteLLM_ManagedVectorStoreIndexTable" USING btree (index_name)
+IDX ON public."LiteLLM_ManagedVectorStoresTable" USING btree (team_id)
+IDX ON public."LiteLLM_ManagedVectorStoresTable" USING btree (user_id)
+IDX ON public."LiteLLM_ManagedVectorStoresTable" USING btree (vector_store_id)
+IDX ON public."LiteLLM_ManagedVectorStoreTable" USING btree (id)
+IDX ON public."LiteLLM_ManagedVectorStoreTable" USING btree (unified_resource_id)
+IDX ON public."LiteLLM_ManagedVectorStoreTable" USING btree (unified_resource_id)
+IDX ON public."LiteLLM_MCPServerTable" USING btree (approval_status)
+IDX ON public."LiteLLM_MCPServerTable" USING btree (server_id)
+IDX ON public."LiteLLM_MCPToolsetTable" USING btree (toolset_id)
+IDX ON public."LiteLLM_MCPToolsetTable" USING btree (toolset_name)
+IDX ON public."LiteLLM_MCPUserCredentials" USING btree (id)
+IDX ON public."LiteLLM_MCPUserCredentials" USING btree (user_id, server_id)
+IDX ON public."LiteLLM_MemoryTable" USING btree (key)
+IDX ON public."LiteLLM_MemoryTable" USING btree (memory_id)
+IDX ON public."LiteLLM_MemoryTable" USING btree (team_id)
+IDX ON public."LiteLLM_MemoryTable" USING btree (user_id)
+IDX ON public."LiteLLM_ModelTable" USING btree (id)
+IDX ON public."LiteLLM_ObjectPermissionTable" USING btree (object_permission_id)
+IDX ON public."LiteLLM_OrganizationMembership" USING btree (user_id, organization_id)
+IDX ON public."LiteLLM_OrganizationMembership" USING btree (user_id, organization_id)
+IDX ON public."LiteLLM_OrganizationTable" USING btree (organization_id)
+IDX ON public."LiteLLM_PolicyAttachmentTable" USING btree (attachment_id)
+IDX ON public."LiteLLM_PolicyTable" USING btree (policy_id)
+IDX ON public."LiteLLM_PolicyTable" USING btree (policy_name, version_number)
+IDX ON public."LiteLLM_PolicyTable" USING btree (policy_name, version_status)
+IDX ON public."LiteLLM_ProjectTable" USING btree (project_id)
+IDX ON public."LiteLLM_PromptTable" USING btree (id)
+IDX ON public."LiteLLM_PromptTable" USING btree (prompt_id)
+IDX ON public."LiteLLM_PromptTable" USING btree (prompt_id, environment)
+IDX ON public."LiteLLM_PromptTable" USING btree (prompt_id, version, environment)
+IDX ON public."LiteLLM_ProxyModelTable" USING btree (model_id)
+IDX ON public."LiteLLM_SearchToolsTable" USING btree (search_tool_id)
+IDX ON public."LiteLLM_SearchToolsTable" USING btree (search_tool_name)
+IDX ON public."LiteLLM_SkillsTable" USING btree (skill_id)
+IDX ON public."LiteLLM_SpendLogGuardrailIndex" USING btree (guardrail_id, start_time)
+IDX ON public."LiteLLM_SpendLogGuardrailIndex" USING btree (policy_id, start_time)
+IDX ON public."LiteLLM_SpendLogGuardrailIndex" USING btree (request_id, guardrail_id)
+IDX ON public."LiteLLM_SpendLogs" USING btree (end_user)
+IDX ON public."LiteLLM_SpendLogs" USING btree (request_id)
+IDX ON public."LiteLLM_SpendLogs" USING btree (session_id)
+IDX ON public."LiteLLM_SpendLogs" USING btree ("startTime")
+IDX ON public."LiteLLM_SpendLogs" USING btree ("startTime", request_id)
+IDX ON public."LiteLLM_SpendLogToolIndex" USING btree (request_id, tool_name)
+IDX ON public."LiteLLM_SpendLogToolIndex" USING btree (tool_name, start_time)
+IDX ON public."LiteLLM_SSOConfig" USING btree (id)
+IDX ON public."LiteLLM_TagTable" USING btree (tag_name)
+IDX ON public."LiteLLM_TeamMembership" USING btree (user_id, team_id)
+IDX ON public."LiteLLM_TeamTable" USING btree (created_at)
+IDX ON public."LiteLLM_TeamTable" USING btree (model_id)
+IDX ON public."LiteLLM_TeamTable" USING btree (organization_id)
+IDX ON public."LiteLLM_TeamTable" USING btree (team_alias)
+IDX ON public."LiteLLM_TeamTable" USING btree (team_id)
+IDX ON public."LiteLLM_ToolTable" USING btree (input_policy)
+IDX ON public."LiteLLM_ToolTable" USING btree (output_policy)
+IDX ON public."LiteLLM_ToolTable" USING btree (team_id)
+IDX ON public."LiteLLM_ToolTable" USING btree (tool_id)
+IDX ON public."LiteLLM_ToolTable" USING btree (tool_name)
+IDX ON public."LiteLLM_UISettings" USING btree (id)
+IDX ON public."LiteLLM_UserNotifications" USING btree (request_id)
+IDX ON public."LiteLLM_UserTable" USING btree (lower(user_email))
+IDX ON public."LiteLLM_UserTable" USING btree (sso_user_id)
+IDX ON public."LiteLLM_UserTable" USING btree (user_id)
+IDX ON public."LiteLLM_VerificationToken" USING btree (budget_reset_at, expires)
+IDX ON public."LiteLLM_VerificationToken" USING btree (team_id)
+IDX ON public."LiteLLM_VerificationToken" USING btree (token)
+IDX ON public."LiteLLM_VerificationToken" USING btree (user_id, team_id)
+IDX ON public._prisma_migrations USING btree (id)
