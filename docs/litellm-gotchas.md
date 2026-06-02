@@ -11,11 +11,12 @@
 | 1 | New model (e.g. opus-4-8) logs **$0 spend** | `LITELLM_LOCAL_MODEL_COST_MAP=True` → boots on frozen bundled cost map that lacks models released after the image was cut | unset it (fresh GitHub fetch) **or** `LITELLM_MODEL_COST_MAP_URL=<vendored copy>` |
 | 2 | `au.` model prices ~10% low (or $0) | `au.` regional prefix is **stripped** before cost-map lookup (#27612) → matches base (or nothing) | explicit `model_list` `model_info` AU prices (bypasses the strip) |
 | 3 | Manual UI cost-map reload "fixes" it, then breaks again after restart | reload is **in-memory only**; restart reverts to the startup map | make the fix durable (#1) — don't rely on reload |
-| 4 | "AWS vs LiteLLM token counts differ significantly" | someone compared `token_counter` (the **estimator**), which uses **tiktoken** for Claude (~8% off) | it's a pre-call estimate, **not the bill** — logged spend uses Bedrock's returned usage (= AWS) |
+| 4 | "AWS vs LiteLLM token counts differ significantly" | someone compared `token_counter` (the **estimator**), which uses **tiktoken** for Claude (~8% off) | it's a pre-call estimate, **not the bill** — logged tokens = Bedrock's returned usage (note: `prompt_tokens` bundles cache → ≠ CloudWatch `InputTokenCount`; see #9) |
 | 5 | User over budget despite raising their personal budget | team key **ignores user budget**; the binding cap is the **team-member budget** | set `max_budget_in_team` on that member |
 | 6 | "Budget exceeded even after monthly reset" | team-member budget has **`budget_duration=null`** → never resets (lifetime cap) | set `budget_duration` (e.g. `30d`) on the member budget |
 | 7 | Spend backfill from `SpendLogs` undercounts cached calls | `SpendLogs` has **no cache-token columns** (only prompt/completion/total) | recompute from `response`/`metadata` JSON, or use the persisted `spend` |
 | 8 | Pod OOMKills on a version bump | 1.83.14 needs **>1Gi** at startup (cost-map/model load); 1.81.0 fit | raise mem limit to **2Gi** (actual steady ≈1Gi) |
+| 9 | LiteLLM token counts ≠ CloudWatch `InputTokenCount` | LiteLLM **inflates** `prompt_tokens` = `inputTokens + cacheRead + cacheWrite`; CloudWatch `InputTokenCount` is **non-cache only** | like-for-like: `prompt_tokens ≈ Input + CacheRead + CacheWrite` (CloudWatch also counts non-LiteLLM callers) |
 
 ---
 
@@ -44,7 +45,7 @@ restarts (or `:main-stable` rolls), then it's gone. It's a hotfix, not the fix. 
 
 ### 4. Token counting: estimator (tiktoken) ≠ logged spend  *(verified: source + live Bedrock call)*
 Two different numbers. **Logged/billed** tokens come from Bedrock's returned `usage` (`converse_transformation.py`
-→ `cost_calculator.py`) = exactly what CloudWatch/AWS reports. **`litellm.token_counter`** (the `/count_tokens`
+→ `cost_calculator.py`) — the same tokens Bedrock bills (but bucketed differently than CloudWatch; see #9). **`litellm.token_counter`** (the `/count_tokens`
 util) is a **pre-call estimate**; for Claude it falls back to **tiktoken (OpenAI's tokenizer)** — the wrong ruler,
 ~8% drift (measured: Bedrock 97 vs estimator 89 on a fixed prompt). The estimator **never touches spend**.
 If AWS-side totals exceed LiteLLM's, suspect **callers outside LiteLLM** (e.g. Sourcegraph), not a count bug.
@@ -64,6 +65,15 @@ columns will **miss cache costs**. Use `spend` where valid, or parse cache token
 
 ### 8. Version-bump memory regression
 1.83.14 OOMKills at a 1Gi container limit (1.81.0 fit). Actual steady-state ≈1Gi → set limit **2Gi**, request 1Gi.
+
+### 9. LiteLLM `prompt_tokens` inflates with cache — won't match CloudWatch `InputTokenCount`  *(verified in source + AWS docs)*
+`converse_transformation.py` sets `prompt_tokens = inputTokens + cacheReadInputTokens + cacheWriteInputTokens`
+(it captures `raw_input_tokens` *"before inflation"*). CloudWatch `InputTokenCount` is **non-cache only** — cache
+read/write are **separate, additive** metrics (AWS TPM formula: `Input + CacheWrite×1.25 + CacheRead×0.1 + Output`).
+So `prompt_tokens` vs `InputTokenCount` alone shows LiteLLM **higher by the cache amount** — a bucketing difference,
+not a count error. Correct comparison: `prompt_tokens ≈ Input + CacheRead + CacheWrite`. CloudWatch also aggregates
+the whole account (incl. non-LiteLLM callers), so it can be higher in aggregate too. Full reconciliation method:
+`cloudwatch-litellm-token-reconciliation-prompt.md`.
 
 ## Posture notes
 - **Pinning trade-off:** pinning the image for CVE/stability **also freezes the bundled cost map** → #1. Decouple them

@@ -1,0 +1,83 @@
+# =============================================================================
+# Hardened LiteLLM model_list — AWS Bedrock AU Claude (ap-southeast-2)
+# Target: v1.83.14-stable.patch.3.  ALL CONFIG, ZERO DB CHANGES (boss-safe).
+#
+# What this hardens (every claim verified this session — source / live / cost map):
+#   1. $0-on-new-models      -> explicit model_info prices => cost-map source can't
+#                               freeze us out (opus-4-8 was MISSING from the pinned map).
+#   2. au.-prefix strip (#27612) -> explicit prices route via the custom-pricing path,
+#                               bypassing the strip => exact AU rates, not base (~10% off) or $0.
+#   3. 1M context (the ticket)-> extra_headers anthropic-beta on the 1M-capable models.
+#                               Verified in converse_transformation.py: extra_headers
+#                               anthropic-beta -> additional_request_params["anthropic_beta"]
+#                               -> Converse additionalModelRequestFields. (Opus/Sonnet only.)
+#
+# KEY INSIGHT: with explicit prices on every routed model, the cost map is just a
+# backstop for anything NOT listed here. Your money path is deterministic regardless
+# of LITELLM_LOCAL_MODEL_COST_MAP / fetch state.
+#
+# Prices = current upstream cost map (AU regional). CONFIRM against AWS Bedrock pricing
+# at apply-time. 1M pricing is FLAT for 4.6/4.8 (no >200k premium — verified).
+# =============================================================================
+
+model_list:
+  # --- Opus 4.8 — 1M context, explicit AU pricing -------------------------------
+  - model_name: claude-opus-4-8
+    litellm_params:
+      model: bedrock/au.anthropic.claude-opus-4-8
+      aws_region_name: ap-southeast-2
+      extra_headers:
+        anthropic-beta: "context-1m-2025-08-07"     # enable 1M (flat pricing on 4.8)
+    model_info:
+      input_cost_per_token: 0.0000055               # $5.50 / Mtok  (AU)
+      output_cost_per_token: 0.0000275              # $27.50 / Mtok (AU)
+      cache_creation_input_token_cost: 0.000006875
+      cache_read_input_token_cost: 0.00000055
+      max_input_tokens: 1000000
+      max_output_tokens: 128000
+
+  # --- Sonnet 4.6 — 1M context, explicit AU pricing -----------------------------
+  - model_name: claude-sonnet-4-6
+    litellm_params:
+      model: bedrock/au.anthropic.claude-sonnet-4-6
+      aws_region_name: ap-southeast-2
+      extra_headers:
+        anthropic-beta: "context-1m-2025-08-07"
+    model_info:
+      input_cost_per_token: 0.0000033               # $3.30 / Mtok  (AU)
+      output_cost_per_token: 0.0000165              # $16.50 / Mtok (AU)
+      cache_creation_input_token_cost: 0.000004125
+      cache_read_input_token_cost: 0.00000033
+      max_input_tokens: 1000000
+      max_output_tokens: 64000
+
+  # --- Haiku 4.5 — 200k ONLY (no 1M), explicit AU pricing -----------------------
+  - model_name: claude-haiku-4-5
+    litellm_params:
+      model: bedrock/au.anthropic.claude-haiku-4-5-20251001-v1:0
+      aws_region_name: ap-southeast-2
+      # NO anthropic-beta: Haiku 4.5 is 200k-only — 1M flag would be a no-op / error.
+    model_info:
+      input_cost_per_token: 0.0000011               # $1.10 / Mtok  (AU)
+      output_cost_per_token: 0.0000055              # $5.50 / Mtok  (AU)
+      cache_creation_input_token_cost: 0.000001375
+      cache_read_input_token_cost: 0.00000011
+      max_input_tokens: 200000
+      max_output_tokens: 64000
+
+# =============================================================================
+# Cost-map source (backstop for non-listed models) — pick ONE:
+#   - Best:  LITELLM_MODEL_COST_MAP_URL=<your vendored copy>   (fresh on your cadence, controlled)
+#   - OK:    leave LITELLM_LOCAL_MODEL_COST_MAP unset          (fresh GitHub fetch at boot)
+#   - Avoid: LITELLM_LOCAL_MODEL_COST_MAP=True with NO explicit prices (the $0 trap)
+# With the explicit prices above, the listed models are safe under ANY of these.
+#
+# Defence-in-depth env (optional): LITELLM_LOCAL_MODEL_COST_MAP=True is now SAFE
+# *because* every routed model is priced above — combine for a fully offline, deterministic
+# money path that can't drift.
+#
+# TO VALIDATE BEFORE/AFTER APPLY:
+#   - work cost-map source:  python -c "from litellm.litellm_core_utils.get_model_cost_map import get_model_cost_map_source_info as s; print(s())"
+#   - 1M flag reaches Bedrock: one >200k-token call to claude-sonnet-4-6 should NOT 400 at 200k.
+#   - prices land: curl a small call, check response header x-litellm-response-cost is non-zero & matches.
+# =============================================================================
