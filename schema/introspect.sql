@@ -39,3 +39,8 @@ ORDER BY tc.table_name, kcu.column_name;
 \echo ### INDEXES
 SELECT tablename, indexname, indexdef FROM pg_indexes
 WHERE schemaname='public' ORDER BY tablename, indexname;
+
+\echo ### VIEWS
+-- LiteLLM ships 8 admin-UI spend-analytics views (relkind 'v') — NOT Prisma models, NOT in the TABLES section above.
+SELECT table_name, regexp_replace(view_definition, '\s+', ' ', 'g')
+FROM information_schema.views WHERE table_schema='public' ORDER BY table_name;

@@ -3,8 +3,15 @@
 > **What this is.** The single, authoritative reference for the LiteLLM proxy Postgres schema, written so
 > an agent **with no web access** can understand and safely operate the DB. Every structural claim is rooted
 > in the **live database**; every table's purpose is rooted in **LiteLLM's own Prisma schema comments**;
-> every cost-behaviour claim is rooted in **official LiteLLM docs** (cited inline). **Work and homelab run the
-> identical pinned build**, so this is faithful to both.
+> every cost-behaviour claim is rooted in **official LiteLLM docs** (cited inline).
+>
+> ⚠️ **Scope: this is the HOMELAB snapshot.** Work was assumed identical, but work-claude counts **65 base
+> tables vs homelab's 62** (+3). **Cause:** work's floating tag drifted to a *higher* LiteLLM version (adding
+> tables via forward migrations), then was pinned **back down** to 1.83.14. Prisma migrations are **forward-only**,
+> so the downgrade couldn't remove them → they're **stranded orphans** (1.83.14 doesn't use them). Homelab was a
+> clean `1.81→1.83.14` forward pin, so it never had them. Confirm via work's `_prisma_migrations`: entries newer
+> than the head `20260418000000_add_adaptive_router_tables` = the drift artifacts. **Treat this map as
+> homelab/1.83.14-faithful;** the 3 work-extras are out-of-scope orphans.
 
 ## Verification basis (how to trust this doc)
 
@@ -26,7 +33,8 @@ If you (an agent) need a fact not here, prefer in this order: `_introspect-homel
 | Digest | `sha256:ec721a5e4b0decb3658c74b696e315dc3e1c664adbfbadded0564ee2d6cc03bc` |
 | Postgres | 16.11 · DB name `litellm` |
 | Schema head | migration `20260418000000_add_adaptive_router_tables` (119 applied) |
-| Tables | **70** (69 Prisma models + `_prisma_migrations`) |
+| Tables | **62** (61 Prisma models + `_prisma_migrations`) |
+| Views | **8** — LiteLLM admin-UI spend analytics + `LiteLLM_VerificationTokenView` (`relkind='v'`, not Prisma). **62 tables + 8 views = 70 relations.** |
 | `STORE_MODEL_IN_DB` | `True` — models **and their pricing** live in the DB, not just `config.yaml` |
 | Snapshot | homelab DB (external Postgres on docker-01), 2026-05-31; version-identical to work RDS |
 
@@ -165,7 +173,7 @@ the rollup grain; a faithful rebuild must `GROUP BY` exactly it.
 
 ---
 
-## Table catalog (all 70, by domain) — purposes rooted in Prisma comments
+## Table catalog (all 62 tables, by domain) — purposes rooted in Prisma comments
 
 ### Auth & keys
 - **`LiteLLM_VerificationToken`** (5) — *"Generate Tokens for Proxy."* Virtual API keys; PK = hashed `token`.
@@ -254,6 +262,25 @@ the rollup grain; a faithful rebuild must `GROUP BY` exactly it.
 - `_prisma_migrations` — Prisma migration ledger (only non-model table; 119 applied). **Forward-only — no down migrations exist upstream.**
 
 ---
+
+## Views (8) — LiteLLM admin-UI spend analytics  *(`relkind='v'`, NOT Prisma models)*
+
+Ship with LiteLLM (present on homelab **and** work); power the admin UI's spend panels. All **read-only,
+derived from `LiteLLM_SpendLogs`** (so they inherit the `$0`-spend bug when pricing breaks) — except the token
+view. Our original introspect missed them (it filtered `relkind='r'`, tables only).
+
+| View | Built on | Returns |
+|---|---|---|
+| `MonthlyGlobalSpend` | SpendLogs | spend per day, last 30d (name says "monthly" but it's last-30d daily) |
+| `MonthlyGlobalSpendPerKey` | SpendLogs | ″ by `api_key` |
+| `MonthlyGlobalSpendPerUserPerKey` | SpendLogs | ″ by `api_key` + `user` |
+| `DailyTagSpend` | SpendLogs | per-tag/day spend (unnests `request_tags`) — the **view**, distinct from the `LiteLLM_DailyTagSpend` **table** |
+| `Last30dKeysBySpend` | SpendLogs ⋈ VerificationToken | top keys by spend, 30d (+ `key_alias`) |
+| `Last30dModelsBySpend` | SpendLogs | top models by spend, 30d |
+| `Last30dTopEndUsersSpend` | SpendLogs | top end-users by spend, 30d |
+| `LiteLLM_VerificationTokenView` | VerificationToken | flattened key list for the UI |
+
+> All key off `SpendLogs."startTime"` over `CURRENT_DATE - 30 days`, in **UTC**.
 
 ## Operational gotchas (verified)
 

@@ -41,3 +41,8 @@ ORDER BY tc.table_name, kcu.column_name, ccu.table_name;
 SELECT regexp_replace(indexdef, '^CREATE (UNIQUE )?INDEX [^ ]+ ON', 'IDX ON')
 FROM pg_indexes WHERE schemaname='public'
 ORDER BY 1;
+
+\echo ### VIEWS   -- view name + normalized definition (catches drift-orphan / version differences)
+SELECT table_name || ' :: ' || regexp_replace(view_definition, '\s+', ' ', 'g')
+FROM information_schema.views WHERE table_schema='public'
+ORDER BY table_name;
