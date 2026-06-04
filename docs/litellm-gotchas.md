@@ -17,6 +17,7 @@
 | 7 | Spend backfill from `SpendLogs` undercounts cached calls | `SpendLogs` has **no cache-token columns** (only prompt/completion/total) | recompute from `response`/`metadata` JSON, or use the persisted `spend` |
 | 8 | Pod OOMKills on a version bump | 1.83.14 needs **>1Gi** at startup (cost-map/model load); 1.81.0 fit | raise mem limit to **2Gi** (actual steady ≈1Gi) |
 | 9 | LiteLLM token counts ≠ CloudWatch `InputTokenCount` | LiteLLM **inflates** `prompt_tokens` = `inputTokens + cacheRead + cacheWrite`; CloudWatch `InputTokenCount` is **non-cache only** | like-for-like: `prompt_tokens ≈ Input + CacheRead + CacheWrite` (CloudWatch also counts non-LiteLLM callers) |
+| 10 | **All** bedrock models log **$0** right after a version upgrade | model registered in **both** config `model_list` **and** the DB (`STORE_MODEL_IN_DB`); traffic routed to the **DB copy**, whose `model_info` pricing was **blanked by the upgrade migration** | remove DB-persisted models (use config), set explicit `model_info` AU prices in config |
 
 ---
 
@@ -74,6 +75,20 @@ So `prompt_tokens` vs `InputTokenCount` alone shows LiteLLM **higher by the cach
 not a count error. Correct comparison: `prompt_tokens ≈ Input + CacheRead + CacheWrite`. CloudWatch also aggregates
 the whole account (incl. non-LiteLLM callers), so it can be higher in aggregate too. Full reconciliation method:
 `cloudwatch-litellm-token-reconciliation-prompt.md`.
+
+### 10. Dual config+DB model registration → upgrade migration blanks pricing → $0  *(verified live, cost real money)*
+**Symptom:** immediately after upgrading the proxy (drifted version → `v1.83.14-stable.patch.3`), **every** bedrock model logged **$0 spend** — from the upgrade boot (incident anchor: `02:41 UTC 2026-05-11`) until a manual UI cost-map reload. A model *added after* the upgrade (opus-4-8) priced **fine** — that's the tell.
+**Root cause:** models were registered **twice** — config `model_list` *and* persisted in the DB (`STORE_MODEL_IN_DB=True`, `LiteLLM_ProxyModelTable`). Traffic routed through the **DB copies**, and the version-upgrade **migration blanked their `model_info` pricing** → $0 for everything they served. The config models priced correctly but **weren't in the request path.**
+**Why every "map" suspect was innocent (each ruled out with evidence — don't re-chase these):**
+- *Missing model:* opus-4-8 (the only model absent from the bundle) was **never** it — added later, priced fine.
+- *Stale `_backup.json`:* the bundled backup prices existing bedrock fine (sonnet `3.3`, haiku `1.1`) — a fallback would **not** zero them.
+- *Broken remote:* git history — at the incident instant, live `main` HEAD was a 3-day-stable, bedrock-clean commit (`f2e9738`, May 8; next change ~13h *later*).
+- *`au.` strip:* `au.` keys resolve to the correct AU rate when present (`3.3`, not base `3.0`).
+  → all three map sources priced bedrock correctly, so **the $0 was never the cost map** — it was downstream DB pricing.
+**Why the "reload" seemed to fix it:** the UI cost-map reload re-syncs `model_info` into the in-memory DB-model objects. Ephemeral relief; the **durable fix is removing the DB models**, not the reload.
+**Why opus was fine:** added *after* the upgrade → captured correct pricing at add-time → never had blanked `model_info`.
+**Fix:** drop the DB-persisted models (rely on config `model_list`), and set **explicit `model_info` AU prices** in config (opus `5.5e-6/2.75e-5`, sonnet `3.3e-6/1.65e-5`, haiku `1.1e-6/5.5e-6`) → pricing is then immune to **both** cost-map blips and DB-migration wipes.
+**Detect / backfill:** `$0` on `status='success'` bedrock rows; check `LiteLLM_ProxyModelTable.model_info->>'input_cost_per_token'` for null/0. The $0 `SpendLogs` rows bound the window (`02:41 UTC 2026-05-11` → reload timestamp).
 
 ## Posture notes
 - **Pinning trade-off:** pinning the image for CVE/stability **also freezes the bundled cost map** → #1. Decouple them
