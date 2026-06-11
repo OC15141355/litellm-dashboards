@@ -56,7 +56,10 @@ For a key with a `team_id`, LiteLLM applies **team-level** budgets, **not** the 
 raising the user budget does nothing. Per-person control inside a team = **`max_budget_in_team`** (stored per
 member via `LiteLLM_TeamMembership.budget_id`); a per-member override beats the team-wide `team_member_budget`
 default (tested: default $40, override $180 → 180 stuck). **Member budgets created via `team_member_budget` come
-with `budget_duration=null` → they never reset** (lifetime cap) — set `budget_duration` explicitly. Design: for
+with `budget_duration=null` → they never reset** (lifetime cap) — set `budget_duration` explicitly. Note the UI's
+`/team/member_update` path **can't** set duration ([#25509](https://github.com/BerriAI/litellm/issues/25509),
+unmerged) and team-level changes don't cascade to existing members → SQL repair only. Full runbook:
+[`member-budget-reset-repair.md`](member-budget-reset-repair.md). Design: for
 many onboarding members, uncap the team total and govern with per-member budgets + overrides.
 
 ### 7. `SpendLogs` has no cache-token columns
