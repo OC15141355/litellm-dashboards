@@ -127,7 +127,13 @@ over — eating into this month's allowance. To give them a clean slate now, two
 | `total_spend` / Grafana (`SpendLogs`) | untouched ✅ (must zero `spend` **only**, not `total_spend`) | untouched ✅ |
 | Redis-safe | ❌ raw DB write is invisible to a Redis-backed counter (no short TTL) → would need restart / Redis flush | ✅ job explicitly clears Redis (`reset_budget_job.py:83-94`) |
 
-**Use (B).** It is correct regardless of Redis, has no enforcement-lag window, and re-arms in one step. To trigger,
+> If the team uses **one shared** member-budget row (every healthy member's `budget_id` points at it) rather than
+> per-member rows, the cleaner end-state is to **repoint** the broken members at that shared row so they inherit the
+> team's cap + rollover — and there (A) is the right tool, since a job-trigger would reset the whole shared cohort.
+> See [`member-budget-shared-realignment-test.md`](member-budget-shared-realignment-test.md), which also includes a
+> reversible single-user rollover probe to confirm sliding-vs-calendar behaviour live.
+
+**Use (B)** *for the per-member-row case*. It is correct regardless of Redis, has no enforcement-lag window, and re-arms in one step. To trigger,
 make only the already-repaired rows due and let the next ~10-min tick fire:
 
 ```sql
