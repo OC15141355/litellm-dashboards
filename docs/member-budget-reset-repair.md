@@ -30,7 +30,7 @@ SQL below won't touch them; they'd need a budget row *created* (also SQL, since 
 ## Upstream bugs (verified, current as of 2026-06)
 
 - [**#25509**](https://github.com/BerriAI/litellm/issues/25509) — `/team/member_update` can't set `budget_duration`; budgets it creates are always `null`. Fix PR #25560 **open/unmerged** → our 1.83.14 is affected. *This is why editing the member budget in the UI can never populate a reset date.*
-- [**#25432**](https://github.com/BerriAI/litellm/issues/25432) — even once duration is set, team-member/end-user budgets use a **legacy sliding-window** reset (anniversary date), **not** calendar-month alignment like users/teams/keys. Relevant if you want resets on the 1st.
+- [**#25432**](https://github.com/BerriAI/litellm/issues/25432) — team-member resets **do fire** in 1.83.14 (verified in source — see "How the reset job works" below; the "members never reset" claim does *not* apply to us), but they use a **legacy sliding-window** reset (anniversary date), **not** calendar-month alignment like users/teams/keys. So a `30d`/`1mo` member budget rolls 30 days from its last reset, not on the 1st. Relevant only if you want resets on a calendar boundary.
 - [**#11636**](https://github.com/BerriAI/litellm/issues/11636) — UI budget reset misbehaves when team default budgets are present.
 
 ## Procedure
@@ -96,10 +96,61 @@ curl -sk -X POST "$LITELLM_API_BASE/team/update" \
 
 (The default seeds budgets at `member_add` time — that path *does* populate duration, unlike `member_update`.)
 
-## How the reset job consumes the fix
+## How the reset job works (source-verified, v1.83.14)
 
-LiteLLM's `reset_budget` job (driven by `proxy_budget_rescheduler_min/max_time`) only selects budget rows where
-`budget_duration` is **non-null** AND `budget_reset_at < now`, sets `spend → 0`, then re-arms
-`budget_reset_at = now + budget_duration`. With duration set but `budget_reset_at` null (today's broken state) the
-row is never selected — fixing **both** columns re-enrolls the member into automatic resets. Single-writer via the
-`LiteLLM_CronJob` lease, so no double-reset across replicas.
+`ResetBudgetJob` selects budget rows where `(budget_reset_at IS NULL AND budget_duration IS NOT NULL) OR
+budget_reset_at < now` (`utils.py:2997-3011`), then for each match:
+- **zeroes `LiteLLM_TeamMembership.spend`** for every membership pointing at that budget — `update_many(where={"budget_id": {"in": ...}}, data={"spend": 0})` (`reset_budget_job.py:100-105`). `total_spend` is **not** touched (lifetime preserved).
+- **clears the enforcement counters** — in-memory *and* Redis — for `spend:team_member:{user_id}:{team_id}` (`reset_budget_job.py:79-94`). This is the part raw SQL can't do; it's why the gate sees the reset immediately.
+- **re-arms** `budget_reset_at = now + budget_duration` on the budget row (`reset_budget_job.py:159, 797-814`).
+
+With duration set but `budget_reset_at` null (the broken state), nothing zeroes the row's spend on its own until
+the next tick — fixing **both** columns re-enrolls the member into automatic resets.
+
+**Scheduling — NOT a CronJob lease.** It's a per-pod APScheduler interval job (`proxy_server.py:6429`), cadence
+`proxy_budget_rescheduler_min_time + rand(0, min(30, max-min))` — defaults **~597–605s, i.e. every ~10 min**
+(`constants.py:1438-1455`); no override in our config/values. Selection is strictly **per budget row**, so making
+one member's `budget_reset_at` due resets only that member. With `replicas: 1` there's no contention; if we ever
+scale >1, each pod would run it independently (the resets are idempotent `set spend=0`, so harmless, but not
+lease-gated — there is no `LiteLLM_CronJob` lease on this path).
+
+## Clearing leftover spend after a repair (A vs B)
+
+When the repair sets `budget_reset_at = now + 30d`, the member keeps **last period's spend** that never rolled
+over — eating into this month's allowance. To give them a clean slate now, two options:
+
+| | (A) raw `UPDATE TeamMembership SET spend = 0` | (B) trigger the reset job — **preferred** |
+|---|---|---|
+| DB durability | ✅ durable — write-back is `spend = spend + delta` (`db_spend_update_writer.py:1301-1306`), so a manual `0` is **not** clobbered, only incremented from | ✅ |
+| Enforcement gate | gate reads cached `spend:team_member:…` (`auth_checks.py:3319`); your `0` reaches it only on cold-miss — **≤60s** in-memory TTL (`proxy_server.py:1599`), or a pod restart | instant — job clears the counter |
+| Re-arm reset date | left as-is (next reset still fires) | re-armed to `now + 30d` automatically |
+| `total_spend` / Grafana (`SpendLogs`) | untouched ✅ (must zero `spend` **only**, not `total_spend`) | untouched ✅ |
+| Redis-safe | ❌ raw DB write is invisible to a Redis-backed counter (no short TTL) → would need restart / Redis flush | ✅ job explicitly clears Redis (`reset_budget_job.py:83-94`) |
+
+**Use (B).** It is correct regardless of Redis, has no enforcement-lag window, and re-arms in one step. To trigger,
+make only the already-repaired rows due and let the next ~10-min tick fire:
+
+```sql
+BEGIN;
+-- Preview: should be exactly the members repaired above (eyeball user_ids + that spend is stale last-period)
+SELECT b.budget_id, tm.user_id, tm.spend, b.budget_duration, b.budget_reset_at
+FROM "LiteLLM_BudgetTable" b
+JOIN "LiteLLM_TeamMembership" tm ON tm.budget_id = b.budget_id
+WHERE b.updated_by = 'manual-budget-repair'
+  AND tm.team_id = (SELECT team_id FROM "LiteLLM_TeamTable" WHERE team_alias='ai_sandbox_team');
+
+UPDATE "LiteLLM_BudgetTable"
+SET budget_reset_at = (now() at time zone 'utc') - interval '1 minute'
+WHERE updated_by = 'manual-budget-repair'
+  AND budget_id IN (
+    SELECT tm.budget_id FROM "LiteLLM_TeamMembership" tm
+    JOIN "LiteLLM_TeamTable" t ON t.team_id = tm.team_id
+    WHERE t.team_alias='ai_sandbox_team' AND tm.budget_id IS NOT NULL
+  );
+COMMIT;
+```
+
+Within ~10 min the job zeroes `spend`, clears the counter, and re-arms `budget_reset_at` to `now + 30d`. Verify
+with the section-1 SELECT (`spend = 0`, `total_spend` unchanged, reset date ~30d out). No need to wait for midnight
+UTC — the job is interval-based, not a daily cron. Scope by `updated_by = 'manual-budget-repair'` so you **don't**
+reset members who were never broken and have legitimate current-period spend.
