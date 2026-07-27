@@ -1,0 +1,103 @@
+# =============================================================================
+# EXAMPLE / REFERENCE ONLY — companion to ../litellm-upgrade-1.93.0.md
+#
+# NOT the live work file. Shows the two version variables this upgrade changes
+# and the model lists the tftpl loops over.
+# =============================================================================
+
+# --- The upgrade: two variables, two different formats -------------------
+#
+# BEFORE:
+#   litellm_chart_version = "1.83.14-stable.patch.3"
+#   litellm_image_tag     = "v1.83.14-stable.patch.3"
+#
+# The old `-stable.patch.N` suffix is gone for good — LiteLLM moved to PEP 440
+# after 1.84.0. Future hotfixes are `1.93.0.post1`, NOT `-stable.patch.1`.
+
+# Helm chart: BARE version, no "v" prefix.
+#   `helm show chart oci://ghcr.io/berriai/litellm-helm --version v1.93.0`
+#     -> Error: not found
+litellm_chart_version = "1.93.0"
+
+# Image: "v" prefix optional — both tags resolve to the identical digest
+#   sha256:72360d8bd5602faa49be5098a8ac3dd069d9fb74503d6bd014242d96dc753e43
+# Keeping the "v" makes for a smaller diff against the old value.
+litellm_image_tag = "v1.93.0"
+
+# --- Migration job -------------------------------------------------------
+# TRUE for this deploy (schema changes: 62 -> 66 tables). Back to false after.
+# See §2a of the runbook — this is the setting most likely to be left wrong.
+migration_job_enabled = true
+
+# --- Deployment ----------------------------------------------------------
+aws_region           = "ap-southeast-2"
+replica_count        = 2
+litellm_secret_name  = "litellm-secrets"
+litellm_host         = "litellm.example.internal"
+ingress_class        = "alb"
+store_model_in_db    = true
+service_monitor_enabled = true
+
+ingress_tls = []
+
+resources = {
+  requests = { cpu = "500m", memory = "1Gi" }
+  limits   = { cpu = "2000m", memory = "4Gi" }
+}
+
+# --- Bedrock models ------------------------------------------------------
+# Explicit prices so the upstream cost map cannot zero us out. AU regional
+# rates — CONFIRM against AWS Bedrock pricing at apply time.
+# 1M-context pricing is FLAT for 4.6/4.8 (no >200k premium).
+bedrock_models = [
+  {
+    name        = "claude-opus-4-8"
+    bedrock_id  = "au.anthropic.claude-opus-4-8"
+    context_1m  = true
+    input_cost  = 0.0000055     # $5.50 / Mtok
+    output_cost = 0.0000275     # $27.50 / Mtok
+    max_input   = 1000000
+    max_output  = 128000
+  },
+  {
+    name        = "claude-sonnet-4-6"
+    bedrock_id  = "au.anthropic.claude-sonnet-4-6"
+    context_1m  = true
+    input_cost  = 0.0000033     # $3.30 / Mtok
+    output_cost = 0.0000165     # $16.50 / Mtok
+    max_input   = 1000000
+    max_output  = 64000
+  },
+  {
+    # Haiku 4.5 is 200k-only — no 1M flag, it would be a no-op or an error.
+    name        = "claude-haiku-4-5"
+    bedrock_id  = "au.anthropic.claude-haiku-4-5-20251001-v1:0"
+    context_1m  = false
+    input_cost  = 0.0000011
+    output_cost = 0.0000055
+    max_input   = 200000
+    max_output  = 8192
+  },
+]
+
+# --- Azure AI Foundry models --------------------------------------------
+# api_version must be 2025-04-01-preview or later for the Responses API.
+foundry_models = [
+  {
+    name        = "gpt-5-2"
+    model       = "azure/gpt-5-2-deployment"
+    api_version = "2025-04-01-preview"
+  },
+]
+
+# =============================================================================
+# Pre-apply checklist (full version in ../litellm-upgrade-1.93.0.md §5)
+#   [ ] RDS snapshot taken AND confirmed restorable  <- this is the rollback
+#   [ ] before-*.csv budget capture + verify-parity.sql baseline
+#   [ ] chart version bare, image version "v"-prefixed, digest pinned
+#   [ ] migration_job_enabled = true
+#   [ ] LITELLM_SALT_KEY added to the secret (free now, permanent later)
+#   [ ] tf plan shows NO database recreate
+#   [ ] no plaintext secrets rendered into the ConfigMap
+#   [ ] grep the real tftpl for separateHealthApp / separateHealthPort
+# =============================================================================

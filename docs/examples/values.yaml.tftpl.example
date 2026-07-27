@@ -1,0 +1,175 @@
+# =============================================================================
+# EXAMPLE / REFERENCE ONLY — companion to ../litellm-upgrade-1.93.0.md
+#
+# This is NOT the live work file. It was reconstructed to mirror the shape of
+# the work deployment (Bedrock + Azure AI Foundry, RDS, external secrets) so the
+# upgrade-relevant lines can be seen in context.
+#
+# HOW TO USE: diff this against the real values.yaml.tftpl. Lines marked
+# "# ⬅ UPGRADE" are the ones this upgrade actually touches. Everything else is
+# here for context and should already match.
+#
+# Verified against chart 1.93.0 (`helm show values oci://ghcr.io/berriai/litellm-helm
+# --version 1.93.0`) on 2026-07-28. Every key below exists in that chart.
+# =============================================================================
+
+# --- Image ---------------------------------------------------------------
+# The -database variant bundles Prisma migrations. Do not switch to plain
+# `litellm` — the migration job needs this image.
+image:
+  repository: ghcr.io/berriai/litellm-database
+  tag: "${litellm_image_tag}"          # ⬅ UPGRADE: v1.83.14-stable.patch.3 -> v1.93.0
+  pullPolicy: IfNotPresent
+  # Digest for v1.93.0, verified against GHCR 2026-07-28:
+  #   sha256:72360d8bd5602faa49be5098a8ac3dd069d9fb74503d6bd014242d96dc753e43
+  # `1.93.0` and `v1.93.0` resolve to this same digest. NOTE the asymmetry:
+  # the Helm CHART version must be bare `1.93.0` (`v1.93.0` -> chart not found).
+
+replicaCount: ${replica_count}
+
+# --- Database ------------------------------------------------------------
+# We use RDS. Bundled Postgres stays off; DATABASE_URL arrives via the
+# existing secret listed in environmentSecrets below.
+postgresql:
+  enabled: false
+db:
+  useExisting: false
+  deployStandalone: false
+  # ⚠ A typo here (e.g. `useExising`) is silently ignored by Helm and the chart
+  #   falls back to looking for a `postgres` secret that does not exist.
+
+# --- Secrets -------------------------------------------------------------
+# Existing k8s secret(s), NOT rendered into the ConfigMap. Must supply:
+#   LITELLM_MASTER_KEY, DATABASE_URL, BEDROCK_API_KEY, BEDROCK_ENDPOINT,
+#   FOUNDARY_MODEL_API_KEY, FOUNDARY_AI_SERVICES_ENDPOINT,
+#   LITELLM_SALT_KEY                  # ⬅ UPGRADE: new — see §2b of the runbook
+environmentSecrets:
+  - ${litellm_secret_name}
+
+masterkeySecretName: ${litellm_secret_name}
+masterkeySecretKey: LITELLM_MASTER_KEY
+
+# --- Schema migration ----------------------------------------------------
+# ⬅ UPGRADE: MUST be true for a VERSION BUMP. Our standing note says "true on
+# first deploy only" — that rule is for same-version redeploys. Left false here,
+# the new image boots against the OLD schema and fails at runtime, not at deploy.
+# Set back to false once this upgrade is confirmed.
+migrationJob:
+  enabled: ${migration_job_enabled}
+  retries: 3
+  backoffLimit: 4
+  ttlSecondsAfterFinished: 120
+  # Do NOT add --use_v2_migration_resolver. Verified in migrations/run.py:47 at
+  # the v1.93.0 tag, the v2 resolver is already the default:
+  #   use_v2 = str_to_bool(os.getenv("USE_V2_MIGRATION_RESOLVER", "true"))
+
+# ⚠ DO NOT SET `args:` to append proxy flags. The chart's top-level `args`
+#   REPLACES the container args; the default is ["--config",
+#   "/etc/litellm/config.yaml"]. Omitting those strips the proxy's config path.
+#   Leave `args` and `command` unset.
+
+# --- Log level (new in the 1.93.0 chart) ---------------------------------
+# ⬅ UPGRADE: the chart now injects LITELLM_LOG as a DIRECT env entry, which in
+# Kubernetes beats anything from envFrom. If LITELLM_LOG is supplied via
+# environmentSecrets, set this to "" or the secret value is silently overridden.
+logLevel: "INFO"
+
+# --- Proxy config (rendered to config.yaml) ------------------------------
+proxy_config:
+  model_list:
+    # AWS Bedrock — AU Claude. Prices are EXPLICIT so the upstream cost map can
+    # never zero us out (see config/hardened-bedrock-models.yaml, and the
+    # au.-prefix strip issue #27612).
+%{ for m in bedrock_models ~}
+    - model_name: ${m.name}
+      litellm_params:
+        model: bedrock/${m.bedrock_id}
+        aws_region_name: ${aws_region}
+        api_key: os.environ/BEDROCK_API_KEY
+        # Server-side ONLY. 1.84.0 blocks CLIENT overrides of this and expanded
+        # the blocklist to AWS/Azure endpoints. Set here = compliant.
+        aws_bedrock_runtime_endpoint: os.environ/BEDROCK_ENDPOINT
+%{ if m.context_1m ~}
+        extra_headers:
+          anthropic-beta: "context-1m-2025-08-07"
+%{ endif ~}
+      model_info:
+        input_cost_per_token: ${m.input_cost}
+        output_cost_per_token: ${m.output_cost}
+        max_input_tokens: ${m.max_input}
+        max_output_tokens: ${m.max_output}
+%{ endfor ~}
+
+    # Azure AI Foundry
+%{ for m in foundry_models ~}
+    - model_name: ${m.name}
+      litellm_params:
+        model: ${m.model}
+        api_base: os.environ/FOUNDARY_AI_SERVICES_ENDPOINT
+        api_key: os.environ/FOUNDARY_MODEL_API_KEY
+%{ if m.api_version != "" ~}
+        api_version: "${m.api_version}"
+%{ endif ~}
+%{ endfor ~}
+
+  general_settings:
+    master_key: os.environ/LITELLM_MASTER_KEY
+    database_url: os.environ/DATABASE_URL
+    # os.environ/ in general_settings and model_list[*].litellm_params is still
+    # fully supported. 1.84.0 only removed os.environ/ resolution inside
+    # KEY/TEAM CALLBACK METADATA. We use none, so nothing to migrate.
+
+    disable_master_key_return: true
+    store_model_in_db: ${store_model_in_db}
+    # ^ Currently true with zero DB-stored models (all config-as-code). Open
+    #   question in the runbook: if that is policy, set false and remove the
+    #   entire encrypted-credential class.
+
+    store_prompts_in_spend_logs: false          # metadata only in Postgres
+    maximum_spend_logs_retention_period: "30d"
+    maximum_spend_logs_retention_interval: "1d"
+
+    # NOT set, and deliberately so: skip_user_budget_on_team_key.
+    # Only relevant at 1.94.0+, where team keys start enforcing the key owner's
+    # personal max_budget (429 ExceededBudget even with team headroom).
+    # If you move to 1.94.0+, read §6 of the runbook FIRST.
+
+  litellm_settings:
+    turn_off_message_logging: true              # external callbacks only
+    callbacks:
+      - prometheus
+
+# --- Ingress -------------------------------------------------------------
+ingress:
+  enabled: true
+  className: ${ingress_class}
+  hosts:
+    - host: ${litellm_host}
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: ${jsonencode(ingress_tls)}
+  # ⬅ UPGRADE: 1.84.0 made /health/readiness report DB status WITHOUT auth.
+  #   Add an ingress/WAF rule restricting it to inside the VPC.
+
+# --- Probes --------------------------------------------------------------
+# The 1.93.0 chart accepts a flattened schema (path/initialDelaySeconds/...)
+# and also deep-merges raw k8s httpGet blocks. Verified by rendering both.
+livenessProbe:
+  path: /health/liveliness
+  initialDelaySeconds: 30
+  periodSeconds: 10
+readinessProbe:
+  path: /health/readiness
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+resources: ${jsonencode(resources)}
+
+serviceMonitor:
+  enabled: ${service_monitor_enabled}
+
+# --- Removed in the 1.93.0 chart ----------------------------------------
+# `separateHealthApp` and `separateHealthPort` no longer exist. They are the
+# ONLY top-level values keys removed between our old chart and 1.93.0 — grep
+# the real tftpl for them before applying.
