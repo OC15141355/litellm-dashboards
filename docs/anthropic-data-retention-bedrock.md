@@ -2,135 +2,181 @@
 
 **Scope:** what Anthropic and AWS retain, share, and store when Claude models are served through **Amazon Bedrock** in `ap-southeast-2`, and what that means for our LiteLLM gateway. Written for an AU environment where data sovereignty and onshore processing are hard requirements.
 
-**Researched:** 2026-07-28 against primary sources (Anthropic platform docs, Anthropic support centre, AWS Bedrock user guide). All sources are listed as **directly fetchable URLs** at the end — no search engine required.
+**Researched:** 2026-07-28. Every factual claim below carries an inline source key (e.g. `[AWS-RET]`) resolving to the [Sources](#sources) table, which also records whether each source was **read directly** or is a **secondary/unverified** reference. Claims marked ⚠️ **UNVERIFIED** must be confirmed before this document is used as a compliance artefact.
 
 **Bottom line up front:**
-1. **Everything we run today is unaffected.** AWS states plainly: *"There is no data retention change to Claude models released before Claude Fable 5."* Our Opus 4.8 / Sonnet 4.6 / Haiku 4.5 traffic is covered by Bedrock's default zero-retention, zero-operator-access posture.
-2. **Claude Fable 5 is a different regime and cannot be adopted quietly.** On Bedrock its *only* permitted data-retention mode is `provider_data_share` — meaning prompts and completions are retained 30 days **and shared with Anthropic**, with potential human review. That is an explicit, account-level opt-in someone has to sign off.
-3. **Our `au.` inference profiles keep processing onshore** — from a Sydney source region the AU profile routes to Sydney and Melbourne only. The **global endpoint would not**, and we should make sure nothing drifts onto it.
+1. **Everything we run today is unaffected.** AWS: *"There is no data retention change to Claude models released before Claude Fable 5."* `[AWS-RET]`
+2. **Claude Fable 5 cannot be adopted quietly.** On Bedrock its only permitted retention mode is `provider_data_share` — prompts and completions retained 30 days **and shared with Anthropic**, with potential human review. `[AWS-RET]` `[AWS-ABUSE]`
+3. **Our residency posture is probably correct but is not yet evidenced.** The `au.` geographic profile is the right *mechanism* `[AWS-XR]`, but its exact destination-region list must be confirmed via `GetInferenceProfile` — see §5.
 
 ---
 
 ## 1. Two separate regimes
 
-The single most important thing to understand is that Anthropic now splits its models into two retention classes, and they behave completely differently.
+Anthropic now splits models into two retention classes that behave completely differently. `[ANT-RET]`
 
 | | **Standard models** (Opus 4.8, Sonnet 5/4.6, Haiku 4.5, Opus 4.7…) | **Covered Models** (Claude Fable 5, Claude Mythos 5) |
 |---|---|---|
-| Retention | None by default on Bedrock | **30 days, mandatory** |
-| Can you opt out? | N/A — nothing retained | **No.** ZDR is not available (except by exception, §6) |
-| Shared with Anthropic? | No | **Yes on Bedrock** — it's the only allowed mode |
-| Human review | No | Only if flagged by automated trust & safety |
-| Effective from | — | 2026-06-09 |
+| Retention | None by default on Bedrock `[AWS-ABUSE]` | **30 days, mandatory** `[ANT-COV]` |
+| Can you opt out? | N/A — nothing retained | **No.** ZDR only by exception (§6) `[ANT-RET]` `[AWS-RET]` |
+| Shared with Anthropic? | No `[AWS-ABUSE]` `[AWS-DP]` | **Yes on Bedrock** — the only allowed mode `[AWS-RET]` |
+| Human review | No | Only if flagged by automated trust & safety `[ANT-COV]` |
+| Effective from | — | 2026-06-09 `[ANT-COV]` |
 
-"Covered Models" is a formal designation, not a description. Anthropic's docs define it as *"Mythos-class models and future models with comparable capabilities designated as covered models by Anthropic."* **The list will grow.** Any future frontier-tier model should be assumed to land in this class until proven otherwise — that's the governance takeaway, more than the specifics of Fable 5.
+"Covered Models" is a formal designation: *"Mythos-class models and future models with comparable capabilities designated as covered models by Anthropic."* `[ANT-COV]` **The list will grow** — that is the durable governance point, more than the specifics of Fable 5.
 
 ---
 
 ## 2. Bedrock's baseline posture (what protects us today)
 
-From the AWS abuse-detection page, verbatim:
+Three independent primary-source statements establish the baseline.
+
+**AWS does not store, and AWS operators cannot read** `[AWS-ABUSE]`:
 
 > Amazon Bedrock uses a **zero operator access (ZOA)** data security model. This means no operators of the service can access model input or output. Also, Amazon Bedrock uses a **zero data retention (ZDR)** data security model. This means that by default, Amazon Bedrock does not store model inputs or outputs.
 
-Anthropic's own Bedrock page reinforces the other half of the boundary:
+**Model providers are architecturally walled off** `[AWS-DP]` — this is the strongest statement of the three, because it is structural rather than policy:
+
+> Amazon Bedrock has a concept of a Model Deployment Account… These accounts are owned and operated by the Amazon Bedrock service team. Model providers don't have any access to those accounts… **Because the model providers don't have access to those accounts, they don't have access to Amazon Bedrock logs or to customer prompts and completions.**
+
+**Anthropic confirms the same boundary from its side** `[ANT-BR]`:
 
 > Claude in Amazon Bedrock runs on AWS-managed infrastructure with **zero operator access (Anthropic personnel have no access to the inference infrastructure)**.
 
-So for our current model set, the position is strong and easy to defend in a review: **AWS doesn't store it, AWS operators can't read it, and Anthropic never receives it.** AWS is the data processor, not Anthropic — which also means Anthropic's own ZDR and HIPAA arrangements are irrelevant to us. Their docs are explicit:
+**Consequence for compliance artefacts:** Anthropic's own ZDR and HIPAA programmes are **irrelevant to us** and should not be cited. Their docs are explicit `[ANT-RET]`:
 
 > On Amazon Bedrock and Google Cloud's Agent Platform, the cloud provider is the data processor; refer to those platforms' data retention and compliance documentation for their equivalent controls.
 
-**Practical consequence:** don't cite Anthropic's ZDR programme in any compliance artefact for our deployment. It does not apply to us. The controlling documents are the **AWS Bedrock data-protection pages and the AWS Service Terms**.
+The controlling documents for us are the **AWS Bedrock data-protection pages and the AWS Service Terms** `[AWS-TERMS]`.
 
 ---
 
 ## 3. The Covered Model regime (Fable 5 / Mythos 5)
 
-Anthropic's stated retention and its rationale:
+Retention and rationale `[ANT-COV]`:
 
 > Prompts submitted to, and outputs generated by, covered models are retained for 30 days.
 
-The justification is cross-interaction threat detection — patterns invisible in any single request: *"Best-of-N jailbreaking"* (hundreds of prompt variations), and larger coordinated campaigns including **state-sponsored espionage and extortion**. Whatever one thinks of the trade, the reasoning is at least specific rather than a generic "safety" hand-wave.
+The justification is cross-interaction threat detection — patterns invisible in any single request: *"Best-of-N jailbreaking"* (hundreds of prompt variations) and larger coordinated campaigns including **state-sponsored espionage and extortion**. `[ANT-COV]`
 
-Access controls Anthropic commits to:
-
+Access controls Anthropic commits to `[ANT-COV]`:
 - By default, Anthropic personnel **cannot** access retained conversations.
-- Human review happens **only** when content is flagged by automated trust-and-safety systems.
-- Reviewers are an approved set, and access is written to **tamper-proof logs**.
-- Data auto-deletes at 30 days unless flagged or subject to legal hold.
+- Human review occurs **only** when content is flagged by automated trust-and-safety systems.
+- Reviewers are an approved set; access is written to **tamper-proof logs**.
+- Data auto-deletes at 30 days unless flagged or under legal hold.
 
-**Carve-out to note:** flagged content escapes the 30-day clock entirely. Anthropic's retention page states that if a chat or session is flagged, *"Anthropic may retain inputs and outputs for up to 2 years"* — and that this applies **regardless of arrangement**. For a government workload, "30 days" is the normal case, not the ceiling.
+**The 30-day figure is not a ceiling.** Flagged content escapes the clock entirely `[ANT-RET]`:
+
+> Even with ZDR or HIPAA arrangements in place, Anthropic may retain data where required by law or where it has been flagged… if a chat or session is flagged, Anthropic may retain inputs and outputs for **up to 2 years**.
 
 ---
 
 ## 4. The Bedrock-specific catch — `provider_data_share`
 
-This is the finding that matters most, and it is easy to miss.
-
-Bedrock implements retention as a **four-value mode**, not a toggle:
+Bedrock implements retention as a **four-value mode**, not a toggle `[AWS-RET]`:
 
 | Mode | Behaviour |
 |---|---|
 | `none` | Zero retention. Nothing written to durable storage by AWS, nothing shared with the provider. |
-| `default` | The model's own policy applies. **AWS may retain for safety/abuse prevention — but "the model provider does not receive it."** |
+| `default` | The model's own policy applies. AWS may retain for safety/abuse prevention — **"the model provider does not receive it."** |
 | `provider_data_share` | AWS retains **and shares your inference data with the model provider**. |
 | `inherit` | Defer to a broader scope. The default for new accounts and projects. |
 
-Resolution order is `project → account → model default`, first non-`inherit` value wins.
+Resolution: `project → account → model default`, first non-`inherit` wins. `[AWS-RET]`
 
-Each model then declares which modes it will accept. And here is the crux:
+Each model declares which modes it accepts. The crux `[AWS-RET]`:
 
 > **Claude Fable 5 and Claude Mythos 5 require provider data sharing (`allowed_modes: ["provider_data_share"]`).** Customers must explicitly set their data retention mode to `provider_data_share` before they can invoke these models. If your effective mode is `none` or `default`, these models will be unavailable.
 
-Compare against what we run today:
+Contrast with what we run today `[AWS-RET]`:
 
-- `anthropic.claude-opus-4-8` → `allowed_modes: ["default", "provider_data_share"]` — AWS's own note says under `default`, *"data is retained by AWS only. The model accepts `provider_data_share` as a valid mode but does not require data to leave AWS's boundary."*
-- `anthropic.claude-fable-5` → `allowed_modes: ["provider_data_share"]` — **there is no non-sharing option.**
+| Model | `allowed_modes` | Effect |
+|---|---|---|
+| `anthropic.claude-opus-4-8` | `["default", "provider_data_share"]` | *"data is retained by AWS only… does not require data to leave AWS's boundary."* |
+| `anthropic.claude-fable-5` | `["provider_data_share"]` | **No non-sharing option exists.** |
 
-And what sharing actually means, from AWS:
+What sharing means `[AWS-RET]`:
 
 > For models requiring `provider_data_share` (currently Claude Mythos 5 and Claude Fable 5): **user prompts and completions are shared with Anthropic** and retained for up to 30 days for trust and safety purposes.
 
-The abuse-detection page says the same thing in plainer words:
+And in plainer words `[AWS-ABUSE]`:
 
 > For Anthropic Claude Fable 5, inputs and outputs will be retained for up to 30 days. In order to use Claude Fable 5, as required by Anthropic, **you must opt in to sharing retained traffic with Anthropic for abuse detection and potential human review.**
 
-### ⚠️ Documentation discrepancy — flag this in any review
+### ⚠️ Documentation discrepancy — raise this in any review
 
-Anthropic's support article summarises the Bedrock case as: **"AWS Bedrock: Retained data stays within AWS."**
+Anthropic's support article summarises the Bedrock case as **"AWS Bedrock: Retained data stays within AWS."** `[ANT-COV]`
 
-Read alone, that reads as *Anthropic never receives it* — which is **not** what the AWS documentation says for Fable 5. The two reconcile only if you read Anthropic's line narrowly, as describing where AWS's own durable copy lives, while the mandatory `provider_data_share` opt-in separately sends prompts and completions to Anthropic.
+Read alone that implies *Anthropic never receives it* — which contradicts `[AWS-RET]` and `[AWS-ABUSE]`. The two reconcile only under a narrow reading of Anthropic's line as describing where AWS's own durable copy lives, while the mandatory opt-in separately transmits prompts and completions to Anthropic.
 
-**Treat the AWS documentation as operative** — we are an AWS customer, AWS is the data processor, and the AWS Service Terms govern. If anyone justifies adopting Fable 5 by quoting the "stays within AWS" line, that is a misreading and should be challenged.
+**Treat the AWS documentation as operative** — we are an AWS customer, AWS is the data processor `[ANT-RET]`, and the AWS Service Terms govern `[AWS-TERMS]`. If anyone justifies adopting Fable 5 by quoting "stays within AWS," that is a misreading.
 
 ---
 
-## 5. Data residency — what `au.` actually guarantees
+## 5. Data residency — what is proven and what is not
 
-Our models are configured with the `au.` prefix (`bedrock/au.anthropic.claude-sonnet-4-6` and friends). That prefix is an **AU geographic cross-region inference profile**, and its behaviour is source-region dependent:
+Our models use the `au.` prefix (`bedrock/au.anthropic.claude-sonnet-4-6` and friends), an **AU geographic cross-region inference profile**.
 
-| Source region | AU profile routes to |
-|---|---|
-| `ap-southeast-2` (Sydney) — **ours** | Sydney and Melbourne **only** |
-| `ap-southeast-4` (Melbourne) | Sydney and Melbourne only |
-| `ap-southeast-6` (Auckland, NZ) | Auckland, Sydney, **and** Melbourne |
+**What is confirmed by primary sources:**
 
-**For us this is the correct choice**: from Sydney, inference is processed in Sydney or Melbourne — both onshore Australia. Supporting guarantees: traffic between regions stays on the AWS backbone and never traverses the public internet, and is encrypted in transit.
+- Geographic profiles are the correct mechanism for residency; global profiles are not `[AWS-XR]`:
 
-Three things to watch:
+  | | Geographic | Global |
+  |---|---|---|
+  | Data residency | *"Within geographic boundaries"* | *"Any supported AWS commercial Region worldwide"* |
+  | Cost | Standard pricing | *"Approximately 10% savings"* |
+  | Recommendation | *"Choose Geographic for compliance requirements"* | — |
 
-1. **The AU profile is now an ANZ profile in the general case.** It expanded to include Auckland. It doesn't affect a Sydney source region today, but "AU" no longer means "Australia only" unconditionally — if a source region is ever changed, re-verify.
-2. **Never use the global endpoint.** Anthropic's Bedrock page describes it as *"dynamic routing across all available regions for maximum availability"* — no residency guarantee whatsoever. It's also the cheaper option (regional endpoints carry a **10% premium**), which makes it exactly the kind of thing that gets switched on for cost reasons by someone who doesn't know the constraint. Worth an explicit guardrail.
-3. **Retention follows processing, not source.** AWS: *"If cross-region inference is enabled for these models, retained inputs and outputs are stored in destination regions."* Benign for us — destinations are Sydney and Melbourne — but it means residency of any *retained* data is determined by the inference profile, so the profile is the control that matters.
+- **A geographic profile's destination list is immutable** — a genuinely valuable compliance guarantee `[AWS-IPS]`:
 
-**Not available to us:** Anthropic's `inference_geo` data-residency parameter is a first-party Claude API feature and is **not supported on Bedrock**. Our residency control is the inference profile, full stop.
+  > if an inference profile is tied to a geography (such as US, EU, or APAC), **its destination Region list will never change**. AWS might create new inference profiles that incorporate new Regions.
+
+  Global profiles carry no such guarantee: they *"can change over time as AWS adds more commercial Regions."*
+
+- Cross-region traffic stays on the AWS backbone, never the public internet, encrypted in transit. `[AWS-XR]`
+
+- **Retention follows processing, not source** `[AWS-ABUSE]`: *"If cross-region inference is enabled for these models, retained inputs and outputs are stored in destination regions."* So for any retention-requiring model, the profile determines residency of retained data.
+
+### ⚠️ UNVERIFIED — the AU destination region list
+
+An earlier draft asserted that the AU profile routes to **Sydney and Melbourne only** from a Sydney source region, and that it has expanded to include Auckland. **That came from secondary sources (AWS blog summaries), not primary documentation** `[SEC-AU]`. Neither `[AWS-XR]` nor `[AWS-IPS]` publishes the AU list; `[AWS-IPS]` states the destination regions are documented per-model and directs you to the API:
+
+> Each model's cross-Region inference profile IDs, supported source Regions, destination Regions, and Geo scope… are documented on the model's detail page… If you need to compare data residency options across multiple models for compliance planning, review the Regional availability table on each model's page to confirm that your chosen model's inference profile routes requests only to Regions that meet your requirements.
+
+**Confirm it authoritatively before relying on it.** `GetInferenceProfile` returns the destination regions in its `models` field `[AWS-IPS]`:
+
+```bash
+aws bedrock get-inference-profile \
+  --region ap-southeast-2 \
+  --inference-profile-identifier au.anthropic.claude-sonnet-4-6 \
+  --query 'models[].modelArn'
+```
+
+Run it **from our source region** and **for each model we serve** — profiles can route differently depending on source region `[AWS-IPS]`. Paste the output into this section as the evidence.
+
+### ⚠️ Opt-in regions — a real sovereignty caveat
+
+This one is easy to miss and matters for a government workload `[AWS-IPS]`:
+
+> The destination Regions in a cross-Region inference profile can include *opt-in Regions*… your inference request can be routed to any of the destination Regions in the profile, **even if you did not opt-in to such Regions in your account. Your input prompts and output results may be stored in the opt-in Regions for abuse detection purposes.**
+
+So account-level region enablement is **not** a residency control — it does not constrain where a profile routes, and data may be *stored* in a region we never enabled. The destination list from `GetInferenceProfile` is the only thing that bounds this.
+
+**Not available to us:** Anthropic's `inference_geo` data-residency parameter is first-party Claude API only and is **not supported on Bedrock** `[ANT-DR]` `[ANT-BR]`. The inference profile is our sole residency control.
 
 ---
 
 ## 6. Controls we can actually apply
 
-**Enforce zero retention org-wide via SCP.** Bedrock publishes a `bedrock-mantle:DataRetentionMode` condition key, so retention mode can be locked at the organisation level rather than trusted to configuration discipline:
+**Block the global endpoint via SCP.** Better than a written prohibition — the global profile requires an explicit SCP allowance, so denying it is a hard control `[AWS-XR]`:
+
+> SCP requirements — Geographic: *"Allow all destination Regions in profile."* Global: *"Allow `aws:RequestedRegion`: `unspecified`."*
+
+Denying `aws:RequestedRegion: unspecified` prevents global-profile inference outright. Worth doing regardless of the Fable 5 question, since global is the *cheaper* option `[AWS-XR]` and is therefore exactly what gets enabled for cost reasons by someone unaware of the constraint.
+
+**⚠️ Operational trap when writing region SCPs** `[AWS-IPS]`: *"If any destination Region in a cross-Region inference profile is blocked in your SCPs, the request will fail even if other Regions remain allowed."* An over-tight region allowlist breaks inference entirely rather than degrading. Enumerate destinations with `GetInferenceProfile` **first**, then write the SCP.
+
+**Enforce retention mode org-wide.** Bedrock publishes a `bedrock-mantle:DataRetentionMode` condition key `[AWS-RET]`:
 
 ```json
 {
@@ -148,76 +194,88 @@ Three things to watch:
 }
 ```
 
-This is the strongest available control and worth proposing on its own merits. **Note the side effect:** it also makes Fable 5 and Mythos 5 permanently unavailable, since their only allowed mode is `provider_data_share`. Whether that's a cost or a feature is a policy decision, not a technical one — but it should be made deliberately rather than discovered later.
+**Side effect:** this makes Fable 5 and Mythos 5 permanently unavailable, since `provider_data_share` is their only allowed mode. Whether that is a cost or a feature is a policy decision — make it deliberately rather than discovering it later.
 
-**Scope sharing to one project instead of the whole account.** If Fable 5 is ever wanted for a specific workload, `provider_data_share` can be set at project level, leaving the rest of the account untouched. Mixed-model projects still behave sensibly — per-model `allowed_modes` governs, so Opus 4.8 traffic inside a sharing-enabled project is still retained by AWS only and not sent to Anthropic.
+**Scope sharing to one project.** `provider_data_share` can be set at project level, leaving the account untouched. Mixed-model projects behave sensibly — per-model `allowed_modes` governs, so Opus 4.8 traffic inside a sharing-enabled project is still retained by AWS only. `[AWS-RET]`
 
-**Request ZDR by exception.** AWS: *"If your organization requires zero data retention for compliance reasons and you need access to these models, contact your AWS account manager… ZDR access is evaluated on a per-account, per-model basis in coordination with the model provider."* Approved accounts see `none` appear in that model's `allowed_modes`. For a government customer this is the path worth pursuing **before** concluding Fable 5 is unusable — but it needs lead time and is not guaranteed.
+**Request ZDR by exception** `[AWS-RET]`:
 
-**Audit the current state** (read-only, safe to run):
+> If your organization requires zero data retention for compliance reasons and you need access to these models, contact your AWS account manager… ZDR access is evaluated on a per-account, per-model basis in coordination with the model provider.
+
+Approved accounts see `none` appear in that model's `allowed_modes`. For a government customer this is the path worth pursuing **before** concluding Fable 5 is unusable — but it needs lead time and is not guaranteed.
+
+**Audit current state** (read-only) `[AWS-RET]`:
 
 ```bash
 # Account-level retention mode
 curl https://bedrock-mantle.ap-southeast-2.api.aws/v1/data_retention \
   -H "x-api-key: $BEDROCK_API_KEY"
 
-# What a specific model permits — check each model we serve
+# What a specific model permits — run for each model we serve
 curl https://bedrock-mantle.ap-southeast-2.api.aws/v1/models/anthropic.claude-opus-4-8 \
   -H "x-api-key: $BEDROCK_API_KEY"
 ```
 
-Expect `inherit` or `default` at account level today. **If it comes back `provider_data_share`, find out who set it and why** — that would mean we are already opted into provider sharing for any model that requests it.
+Expect `inherit` or `default`. **If it returns `provider_data_share`, find out who set it and why** — that would mean we are already opted into provider sharing for any model that requests it. There is **no console UI** for this at launch; it is API-only `[AWS-RET]`.
 
-There is **no console UI** for this at launch; it is API-only. That cuts both ways: harder to discover, but also harder to change by accident.
+**Prove residency after the fact.** Every cross-region request is auditable `[AWS-XR]`:
+
+> All cross-Region inference requests are logged in CloudTrail in your source Region. Look for the `additionalEventData.inferenceRegion` field to identify where requests were processed.
+
+That field is the evidence a reviewer will want: not a claim about where inference *should* run, but a log of where it *did*. Worth a scheduled query asserting it only ever contains AU regions.
 
 ---
 
 ## 7. Our own logging is a separate surface
 
-Everything above concerns what *Anthropic and AWS* retain. Independently, we retain data ourselves, and that is fully under our control:
+Everything above concerns what *Anthropic and AWS* retain. Independently we retain data ourselves, fully under our control:
 
-- **LiteLLM:** `store_prompts_in_spend_logs: false` and `turn_off_message_logging: true` mean we keep metadata and cost attribution in PostgreSQL, **not prompt or completion content**. Retention is capped at 30 days via `maximum_spend_logs_retention_period`. This is a good posture and worth stating explicitly in any compliance artefact — the sensitive content never lands in our database at all.
-- **Bedrock model invocation logging:** an AWS-side, customer-controlled feature that writes full request/response payloads to S3 or CloudWatch. If it is enabled, we are creating our own copy of exactly the content the LiteLLM settings above are avoiding. **Worth verifying it is off**, or that its target bucket has appropriate retention and access controls.
-- **CloudWatch / CloudTrail:** Claude in Bedrock emits to both. Anthropic recommends retaining activity logs on at least a 30-day rolling basis for usage analysis and incident investigation. These are metadata, not content.
+- **LiteLLM:** `store_prompts_in_spend_logs: false` and `turn_off_message_logging: true` mean we keep metadata and cost attribution in PostgreSQL, **not prompt or completion content**, capped at 30 days via `maximum_spend_logs_retention_period`. Worth stating explicitly in any compliance artefact — the sensitive content never lands in our database.
+- **Bedrock model invocation logging:** an AWS-side, customer-controlled feature writing full request/response payloads to S3 or CloudWatch. If enabled, it creates exactly the copy the LiteLLM settings avoid. **Verify it is off**, or that its target has appropriate retention and access controls.
+- **CloudWatch / CloudTrail:** Claude in Bedrock emits to both; Anthropic recommends ≥30-day rolling retention of activity logs `[ANT-BR]`. Metadata, not content — and per §6 the CloudTrail record is our residency evidence.
 
 ---
 
 ## 8. Where this leaves us
 
-**No action required for current operations.** Our model set predates the Covered Model regime and AWS confirms no retention change applies to it. The gateway's posture today — Bedrock ZOA + ZDR, AU-scoped inference profiles, content-free spend logging — is defensible as-is.
+**No action required for current operations.** Our model set predates the Covered Model regime `[AWS-RET]`, and the baseline is backed by three independent primary statements (§2). The gateway's posture — Bedrock ZOA + ZDR, AU geographic profiles, content-free spend logging — is defensible.
 
-**Fable 5 is a policy decision, not a config change.** Adopting it means accepting that prompts and completions leave the AWS boundary for Anthropic, are retained 30 days, may be human-reviewed if flagged, and may be held up to two years if flagged. For an AU government workload that is a conversation with security and legal, not something to enable because a benchmark looks good. Sequence it properly:
+**Fable 5 is a policy decision, not a config change.** Adopting it means prompts and completions leave the AWS boundary for Anthropic, retained 30 days, human-reviewable if flagged, and retainable up to two years if flagged. Sequence it:
 
 1. Confirm current account retention mode is not already `provider_data_share`.
-2. If Fable 5 is genuinely wanted, ask AWS about per-account ZDR **first** — it may make the question moot.
-3. If ZDR is refused, escalate the data-sharing decision rather than deciding it at the platform layer.
+2. If Fable 5 is genuinely wanted, ask AWS about per-account ZDR **first** — it may moot the question.
+3. If refused, escalate the data-sharing decision rather than settling it at the platform layer.
 
-**Two guardrails worth adding regardless of the Fable 5 question:**
-- The SCP above, or at minimum an account-level `none`/`default` with monitoring on changes to it.
-- An explicit prohibition on the global endpoint, since it silently defeats data residency and is the cheaper option.
+**Before this document is used as a compliance artefact**, close the two ⚠️ items in §5: run `GetInferenceProfile` for every model we serve from `ap-southeast-2` and record the destination regions here, and confirm none are opt-in regions outside Australia.
 
-**And one governance point.** The Covered Model designation is explicitly forward-looking — *"future models with comparable capabilities."* This will recur at the next frontier release. The durable fix is a standing rule: **any new Anthropic model gets its `allowed_modes` checked before it is added to the gateway**, not after. That check is a single `GET /v1/models/{model}` call and belongs in the model-onboarding checklist.
+**Guardrails worth adding regardless:** the global-endpoint SCP deny, the retention-mode SCP (with the Fable 5 side effect understood), and a CloudTrail assertion on `additionalEventData.inferenceRegion`.
+
+**Standing governance rule.** The Covered Model designation is explicitly forward-looking — *"future models with comparable capabilities"* `[ANT-COV]`. This recurs at the next frontier release. **Any new Anthropic model gets its `allowed_modes` checked before it is added to the gateway**, not after. That is one `GET /v1/models/{model}` call and belongs in the model-onboarding checklist.
 
 ---
 
-## Sources — all directly fetchable (no search required)
+## Sources
 
-**Anthropic**
-- API and data retention (ZDR, HIPAA, Covered Models, feature eligibility table) — `https://platform.claude.com/docs/en/manage-claude/api-and-data-retention`
-- Data retention practices for Covered Models — `https://support.claude.com/en/articles/15425996-data-retention-practices-for-mythos-class-models`
-- Covered Models designation — `https://support.claude.com/en/articles/15425695`
-- Claude in Amazon Bedrock (Opus 4.7 and later) — models, regions, endpoint types, feature gaps — `https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock`
-- Commercial data retention policy — `https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data`
-- Data residency (`inference_geo` — first-party only, not Bedrock) — `https://platform.claude.com/docs/en/manage-claude/data-residency`
-- Trust Center — `https://trust.anthropic.com/resources`
+**Verification status:** ✅ = fetched and read in full during this investigation; ↗ = referenced by a fetched source but not independently read; ⚠️ = secondary source, treat as unconfirmed.
 
-**AWS**
-- Bedrock data retention (modes, `allowed_modes`, SCP enforcement, IAM actions) — `https://docs.aws.amazon.com/bedrock/latest/userguide/data-retention.html`
-- Bedrock abuse detection (ZOA/ZDR baseline, per-model retention exceptions) — `https://docs.aws.amazon.com/bedrock/latest/userguide/abuse-detection.html`
-- Data protection in Amazon Bedrock — `https://docs.aws.amazon.com/bedrock/latest/userguide/data-protection.html`
-- Cross-region inference (geographic vs global profiles) — `https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference.html`
-- Third-party model terms (Anthropic) — `https://aws.amazon.com/legal/bedrock/third-party-models/`
-- AWS Service Terms — `https://aws.amazon.com/service-terms/`
+| Key | Status | Document | URL |
+|---|---|---|---|
+| `[ANT-RET]` | ✅ | Anthropic — API and data retention (ZDR, HIPAA, Covered Models, feature eligibility) | `https://platform.claude.com/docs/en/manage-claude/api-and-data-retention` |
+| `[ANT-COV]` | ✅ | Anthropic — Data retention practices for Covered Models | `https://support.claude.com/en/articles/15425996-data-retention-practices-for-mythos-class-models` |
+| `[ANT-BR]` | ✅ | Anthropic — Claude in Amazon Bedrock (Opus 4.7 and later) | `https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock` |
+| `[AWS-RET]` | ✅ | AWS — Bedrock data retention (modes, `allowed_modes`, SCP key, IAM actions) | `https://docs.aws.amazon.com/bedrock/latest/userguide/data-retention.html` |
+| `[AWS-ABUSE]` | ✅ | AWS — Bedrock abuse detection (ZOA/ZDR baseline, per-model exceptions) | `https://docs.aws.amazon.com/bedrock/latest/userguide/abuse-detection.html` |
+| `[AWS-DP]` | ✅ | AWS — Data protection in Amazon Bedrock (Model Deployment Accounts) | `https://docs.aws.amazon.com/bedrock/latest/userguide/data-protection.html` |
+| `[AWS-XR]` | ✅ | AWS — Cross-region inference (geographic vs global, SCP requirements, CloudTrail field) | `https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference.html` |
+| `[AWS-IPS]` | ✅ | AWS — Supported Regions and models for inference profiles (opt-in regions, immutability, `GetInferenceProfile`) | `https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html` |
+| `[ANT-COVD]` | ↗ | Anthropic — Covered Models designation | `https://support.claude.com/en/articles/15425695` |
+| `[ANT-DR]` | ↗ | Anthropic — Data residency (`inference_geo`; first-party only) | `https://platform.claude.com/docs/en/manage-claude/data-residency` |
+| `[ANT-PRIV]` | ↗ | Anthropic — Commercial data retention policy | `https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data` |
+| `[ANT-TRUST]` | ↗ | Anthropic — Trust Center | `https://trust.anthropic.com/resources` |
+| `[AWS-TERMS]` | ↗ | AWS — Service Terms | `https://aws.amazon.com/service-terms/` |
+| `[AWS-3P]` | ↗ | AWS — Bedrock third-party model terms (Anthropic) | `https://aws.amazon.com/legal/bedrock/third-party-models/` |
+| `[AWS-API]` | ↗ | AWS — `GetInferenceProfile` API reference | `https://docs.aws.amazon.com/bedrock/latest/APIReference/API_GetInferenceProfile.html` |
+| `[SEC-AU]` | ⚠️ | Secondary — AWS blog / third-party commentary on AU profile scope. **Source of the unverified Sydney/Melbourne/Auckland claim in §5.** | `https://aws.amazon.com/blogs/machine-learning/securing-amazon-bedrock-cross-region-inference-geographic-and-global/` |
 
 **Internal**
 - `docs/litellm-upgrade-1.93.0.md` — gateway version posture
