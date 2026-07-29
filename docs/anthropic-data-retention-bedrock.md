@@ -17,13 +17,29 @@ Anthropic now splits models into two retention classes that behave completely di
 
 | | **Standard models** (Opus 4.8, Sonnet 5/4.6, Haiku 4.5, Opus 4.7…) | **Covered Models** (Claude Fable 5, Claude Mythos 5) |
 |---|---|---|
-| Retention | None by default on Bedrock `[AWS-ABUSE]` | **30 days, mandatory** `[ANT-COV]` |
+| Retention | None in practice under `default`, but **not guaranteed** by that mode — see §1.1 `[AWS-ABUSE]` `[AWS-RET]` | **30 days, mandatory** `[ANT-COV]` |
 | Can you opt out? | N/A — nothing retained | **No.** ZDR only by exception (§6) `[ANT-RET]` `[AWS-RET]` |
 | Shared with Anthropic? | No `[AWS-ABUSE]` `[AWS-DP]` | **Yes on Bedrock** — the only allowed mode `[AWS-RET]` |
 | Human review | No | Only if flagged by automated trust & safety `[ANT-COV]` |
 | Effective from | — | 2026-06-09 `[ANT-COV]` |
 
 "Covered Models" is a formal designation: *"Mythos-class models and future models with comparable capabilities designated as covered models by Anthropic."* `[ANT-COV]` **The list will grow** — that is the durable governance point, more than the specifics of Fable 5.
+
+### 1.1 "No retention" vs `default` mode — an important distinction
+
+Two statements in the AWS documentation look contradictory and are worth resolving explicitly, because the difference is the difference between an inference and a guarantee.
+
+**The case that nothing is retained for our models.** `[AWS-ABUSE]` is *enumerative*: it states the baseline is zero retention, then lists exactly which models are exceptions — the OpenAI GPT-5.x family (classifier-flagged traffic only) and Claude Fable 5. **Pre-Fable-5 Claude models do not appear on that list.** `[AWS-RET]` agrees: *"There is no data retention change to Claude models released before Claude Fable 5."*
+
+**The phrase that looks like it contradicts this.** `[AWS-RET]`'s mixed-model projects passage says of Opus 4.8: *"data is retained by AWS only. The model accepts `provider_data_share` as a valid mode but does not require data to leave AWS's boundary."* Read in context, that sentence is contrasting **destination** (AWS vs. the model provider), not asserting that retention routinely occurs — the operative clause is the second one. It answers "if anything is retained, who gets it," not "is anything retained."
+
+**But `default` is deliberately not a promise.** The full mode definition hedges throughout `[AWS-RET]`:
+
+> Default means the data retention policy of the model applies… **Actual retention depends on the model** — consult the model's terms for specifics. AWS **may** retain the data for safety and abuse-prevention purposes. The model provider does not receive it… **If you require guaranteed zero retention, set `data_retention_mode` to `none`.**
+
+**Conclusion.** Under `default`, today, our models are not retained — but that conclusion is *derived* by cross-referencing an enumerated exception list, and it changes silently the moment AWS adds a model or a trigger to that list. `none` is the only mode that guarantees zero retention, and it is enforced at the API layer: a model that requires retention is blocked rather than quietly retaining.
+
+**For this deployment, set the account to `none` explicitly rather than relying on `default`.** It converts our position from "we read the documentation and concluded nothing is retained" to "the platform refuses to retain" — a materially stronger claim in a compliance artefact, and one that does not depend on a list staying unchanged. See §6 for the SCP that enforces it, and note the deliberate side effect: it makes Fable 5 and Mythos 5 permanently unavailable.
 
 ---
 
@@ -92,8 +108,10 @@ Contrast with what we run today `[AWS-RET]`:
 
 | Model | `allowed_modes` | Effect |
 |---|---|---|
-| `anthropic.claude-opus-4-8` | `["default", "provider_data_share"]` | *"data is retained by AWS only… does not require data to leave AWS's boundary."* |
+| `anthropic.claude-opus-4-8` | `["default", "provider_data_share"]` | *"data is retained by AWS only… does not require data to leave AWS's boundary."* † |
 | `anthropic.claude-fable-5` | `["provider_data_share"]` | **No non-sharing option exists.** |
+
+† This phrase describes **where** retained data goes (AWS, not the provider), not whether retention routinely happens. Per §1.1, pre-Fable-5 Claude models are not on the abuse-detection retention list — but only `none` guarantees that.
 
 What sharing means `[AWS-RET]`:
 
@@ -218,6 +236,15 @@ curl https://bedrock-mantle.ap-southeast-2.api.aws/v1/models/anthropic.claude-op
 
 Expect `inherit` or `default`. **If it returns `provider_data_share`, find out who set it and why** — that would mean we are already opted into provider sharing for any model that requests it. There is **no console UI** for this at launch; it is API-only `[AWS-RET]`.
 
+**Then set it to `none` explicitly** (see §1.1 — `default` is an inference, `none` is a guarantee):
+
+```bash
+curl -X PUT https://bedrock-mantle.ap-southeast-2.api.aws/v1/data_retention \
+  -H "x-api-key: $BEDROCK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "mode": "none" }'
+```
+
 **Prove residency after the fact.** Every cross-region request is auditable `[AWS-XR]`:
 
 > All cross-Region inference requests are logged in CloudTrail in your source Region. Look for the `additionalEventData.inferenceRegion` field to identify where requests were processed.
@@ -238,7 +265,7 @@ Everything above concerns what *Anthropic and AWS* retain. Independently we reta
 
 ## 8. Where this leaves us
 
-**No action required for current operations.** Our model set predates the Covered Model regime `[AWS-RET]`, and the baseline is backed by three independent primary statements (§2). The gateway's posture — Bedrock ZOA + ZDR, AU geographic profiles, content-free spend logging — is defensible.
+**Current operations are sound, with one setting worth changing.** Our model set predates the Covered Model regime `[AWS-RET]` and the baseline is backed by three independent primary statements (§2). But per §1.1, if the account is on `inherit`/`default` we are relying on an *inference* that nothing is retained, derived from an exception list that can change without notice. **Setting `data_retention_mode` to `none` explicitly** costs nothing operationally for our current models and upgrades that inference to a platform-enforced guarantee. Do this before the SCP, then use the SCP to hold it.
 
 **Fable 5 is a policy decision, not a config change.** Adopting it means prompts and completions leave the AWS boundary for Anthropic, retained 30 days, human-reviewable if flagged, and retainable up to two years if flagged. Sequence it:
 
