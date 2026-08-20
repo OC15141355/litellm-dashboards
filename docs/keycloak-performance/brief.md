@@ -107,7 +107,7 @@ Caches [S1]:
 | Keycloak DB connection pool size | Pool exhaustion presents as latency, not errors |
 | Cache sizes (users, realms, sessions) | §1.1 thresholds |
 | AZ / topology spread | Inter-AZ latency is brutal — see §7.4 |
-| Keycloak version | 26.x changed materially; also pins the tooling version (§3.1) |
+| Keycloak version — **known: 26.6.1** | Confirm dev matches prod. Drives tooling version choice (§3.1) and the §1.5 caveats |
 | HPA present? min/max replicas? | An HPA makes throughput tests non-reproducible unless pinned |
 
 ### 1.3 Verdict template
@@ -125,6 +125,50 @@ includes an LDAP round trip that the formula does not model, and the real
 per-vCPU login rate will be lower.
 
 ---
+
+## 1.5 We are on Keycloak 26.6.1 — what that changes
+
+Confirmed work version: **26.6.1** (26.6.0 and 26.6.1 both released April 2026
+[S12]). Several things follow.
+
+**The published benchmark baseline is two minors behind us.** Red Hat's headline
+numbers [S2] were produced on **26.4**. Between 26.4 and 26.6 the release notes
+list [S12]:
+
+- **"Performance improvements for client session queries"**
+- **Role caching is now realm-specific** (previously cross-realm contention)
+- **Session idle/lifetime settings revisited**
+- **Connection pooling** — improved timeout handling and acquisition configuration
+
+All four touch exactly the paths this engagement measures. Treat the §1.1
+formulas and §7 rankings as *priors from 26.4*, expect our measurements to
+differ, and do not report a discrepancy as a defect without checking whether a
+26.5/26.6 change explains it. The 20ms-RTT finding in §7.4 is explicitly
+attributed to **26.3** [S2] and may well be improved in our version — worth
+verifying rather than assuming.
+
+**Graceful HTTP shutdown is new and its defaults are short.** 26.6 adds delayed
+shutdown plus connection draining for HTTP/1.1 and HTTP/2, with **timeouts
+defaulting to 1 second each** [S12]. Under real login load, one second may not
+be enough to drain in-flight requests, which would surface as client-visible
+errors during any rolling restart or scale event. Two implications:
+
+- If an HPA scales during a run, or a pod restarts, errors may be shutdown
+  artifacts rather than capacity findings. Pin replicas (§4.1) and check pod
+  restart counts before attributing errors to load.
+- This is worth testing on purpose — a rolling restart under load is a genuine
+  production event, and 26.6 also ships **zero-downtime patch upgrades** [S12].
+  Not in the ACs; flag it as a follow-up rather than scope creep.
+
+**Startup/liveness probes now return UP during database migrations** and server
+initialization can be asynchronous [S12]. A pod reporting ready is therefore
+weaker evidence that it is actually serving than it used to be. Confirm real
+readiness with a request, not a probe status, before starting a measurement run.
+
+**JDK:** 26.6 supports OpenJDK 25, but the **container images still ship
+OpenJDK 21** (FIPS compatibility) [S12]. Record which JVM our image actually
+runs — GC behaviour (§7.3) is JVM-version-sensitive, and assuming 25 when it is
+21 would misread the GC data.
 
 ## 2. Instrumentation prerequisites — land these before testing
 
@@ -144,8 +188,15 @@ Recommended startup configuration [S3]:
 --metrics-enabled=true
 --http-metrics-histograms-enabled=true
 --http-metrics-slos=250,500,1000,2500
+--cache-metrics-histograms-enabled=true
 --event-metrics-user-enabled=true
 ```
+
+`cache-metrics-histograms-enabled` (default false) adds histograms for the
+embedded Infinispan caches [S3] — directly relevant to the §7.2 cache
+bottleneck, which is the cheapest lever we have if the DB turns out to be the
+constraint. Set `http-metrics-slos` buckets to straddle whatever SLO is agreed
+in §0.2, not the values above, which are only a sensible default.
 
 - Metrics are served on **`/metrics` on the management interface** (a separate
   port from the main HTTP listener — port-forward the management port, not 8080)
@@ -190,23 +241,55 @@ Three modules [S4]:
 - **dataset** — a Keycloak server-side provider JAR that seeds realms/users/groups/clients/sessions
 - **provisioning** — minikube/docker-compose setups (not needed; we have a real cluster)
 
-**Obtain it without a Maven build.** GitHub releases carry prebuilt assets:
+GitHub releases carry prebuilt assets:
 
 ```
 https://github.com/keycloak/keycloak-benchmark/releases/download/<TAG>/keycloak-benchmark-<TAG>.zip
 https://github.com/keycloak/keycloak-benchmark/releases/download/<TAG>/keycloak-benchmark-dataset-<TAG>.jar
 ```
 
-**Version matching matters.** Release tags track Keycloak minor versions
-(`26.4.0-SNAPSHOT`, `26.3.0-SNAPSHOT`, plus a rolling `999.0.0-SNAPSHOT`).
-**Match the dataset JAR tag to our Keycloak version** — it is a server-side
-provider and version skew will fail at deploy or behave incorrectly. Note all
-tags are `-SNAPSHOT`; there is no stable semver line, so record the exact tag
-used in the report for reproducibility.
-
 Runtime: **Java 17** (`maven.compiler.source/target = 17` [S4]). `kcb.sh`
 defaults the generator JVM to `-Xmx1G` — raise it if the generator itself
 becomes the bottleneck (see §4.1).
+
+#### Version matching — we are on Keycloak 26.6.1 and there is no matching release
+
+Published tags, checked 2026-08-18 [S4]: `999.0.0-SNAPSHOT` (2026-08-05),
+`26.4.0-SNAPSHOT` (2025-11-17), `26.3.0-SNAPSHOT`, `26.2-SNAPSHOT`,
+`26.1-SNAPSHOT`, `26.0-SNAPSHOT`. **There is no 26.5 or 26.6 release.** The
+rolling `999.0.0-SNAPSHOT` is built from `main`, whose pom pins
+`<keycloak.version>999.0.0-SNAPSHOT` — that is Keycloak *nightly*, which is
+**ahead** of 26.6.1, not equal to it.
+
+So no published artifact matches our server. The risk is **asymmetric between
+the two modules**, and they should be handled differently:
+
+| Module | Coupling | Risk | Do this |
+|---|---|---|---|
+| **benchmark** (Gatling) | Pure HTTP client against Keycloak's public OIDC + Admin REST endpoints | **Low** — those endpoints are stable across minors | Use `999.0.0-SNAPSHOT`. Falling back to `26.4.0-SNAPSHOT` is also fine |
+| **dataset** (provider JAR) | Server-side SPI loaded *into* Keycloak, compiled against Keycloak internals | **High** — internal SPI changes between minors; skew fails at provider load or misbehaves silently | **Build from source pinned to our version** (below) |
+
+**Preferred path — build the dataset JAR against 26.6.1.** The pom
+parameterises the server version, so:
+
+```
+./mvnw clean package -Dkeycloak.version=26.6.1 -pl dataset -am
+```
+
+Needs Maven (the repo bundles `./mvnw`) and JDK 17 in the work environment.
+This is the only route that gives a version-matched provider, and it is worth
+the extra step — a silently misbehaving seeder corrupts the dataset that every
+subsequent measurement rests on.
+
+**Fallback if a build isn't possible:** try the `999.0.0-SNAPSHOT` dataset JAR
+against 26.6.1 and verify it loads *and* functions (create a small realm, check
+`/status-completed`, confirm the entity counts are actually right — a provider
+that loads is not necessarily a provider that works). If it fails, seed via the
+**Admin REST API** instead: slower and it lacks the cache-control endpoints
+(§3.3), but it has zero version coupling. Losing the cache endpoints costs us
+the cold-cache test in §4.2, so note that in the report if it comes to it.
+
+Record the exact tag or build coordinates used, in the report, either way.
 
 ### 3.2 Scenario → AC map
 
@@ -519,7 +602,8 @@ agreement first.
 ## 7. Bottleneck playbook — what breaks, in what order
 
 Ranked by Keycloak's own 26.4 benchmark findings [S2]. When something degrades,
-check in this order.
+check in this order. **Caveat: we run 26.6.1 and these rankings come from 26.4 —
+see §1.5 for the changes in between that may shift them.**
 
 ### 7.1 Database CPU — the usual first constraint
 In the 26.4 runs, DB CPU peaked at **77%**, dropping to **63%** when cache sizes
@@ -559,7 +643,9 @@ is cheap to check and embarrassing to miss.
 ### 7.6 Connection pool exhaustion
 Keycloak's DB pool smaller than its concurrency ceiling produces latency (queueing)
 rather than errors, which makes it easy to misread as slow queries. Compare pool
-size against observed concurrency.
+size against observed concurrency. **26.6 changed connection-pool timeout handling
+and acquisition configuration** [S12] — check the current options rather than
+carrying over settings or assumptions from an older version.
 
 ---
 
@@ -609,7 +695,7 @@ WebFetch-able. Per-claim keys used throughout.
 |---|---|---|
 | S1 | https://www.keycloak.org/high-availability/multi-cluster/concepts-memory-and-cpu-sizing | vCPU/RAM formulas, cache sizing thresholds, headroom rule, GC guidance |
 | S2 | https://www.keycloak.org/2025/10/keycloak-benchmark — "Keycloak Performance Benchmarks: A Deep Dive into Scaling and Sizing (26.4)" | Bottleneck ranking, DB CPU 77%→63%, GC 3.99→4.91ms, 20ms RTT → 1076ms |
-| S3 | https://docs.redhat.com/en/documentation/red_hat_build_of_keycloak/26.2/html/observability_guide/configuration-metrics- | Metrics off by default, build-time option, `/metrics` on management interface, histogram + SLO flags |
+| S3 | https://www.keycloak.org/observability/configuration-metrics | Metrics off by default, build-time option, `/metrics` on management interface, `http-metrics-histograms-enabled`, `cache-metrics-histograms-enabled`, `http-metrics-slos`. Re-verified against current docs 2026-08-18 |
 | S4 | https://github.com/keycloak/keycloak-benchmark — **verified by reading source at commit `414d701de677c49432bd16f28dd9b1fff60bf92b` (2026-08-05)** | Scenario list incl. undocumented `JoinGroup`/`HomePage`, full `Config` property list, `kcb.sh` incremental mode, dataset endpoints and query params, Java 17 |
 | S5 | https://www.keycloak.org/keycloak-benchmark/kubernetes-guide/latest/running/jvm/jvm_options | Keycloak JVM options |
 | S6 | https://www.keycloak.org/observability/keycloak-service-level-indicators | Basis for proposing an SLO |
@@ -618,6 +704,12 @@ WebFetch-able. Per-claim keys used throughout.
 | S9 | https://www.keycloak.org/keycloak-benchmark/kubernetes-guide/latest/util/prometheus | Collecting Prometheus metrics in the Kubernetes guide |
 | S10 | `docs/keycloak-ldap-sub-drift-grafana-sourcegraph.md` (this repo) | Our LDAP federation layout and known `sub`-drift failure mode |
 | S11 | https://www.keycloak.org/docs-api/latest/rest-api/index.html — Admin REST API reference. Version caveat discussed at https://github.com/keycloak/keycloak/discussions/21977 | `user-storage/{id}/sync` trigger path; verify against our version |
+| S12 | https://www.keycloak.org/2026/04/keycloak-2660-released and https://www.keycloak.org/2026/04/keycloak-2661-released | 26.6 changes: client-session query performance, realm-specific role caching, session idle/lifetime, connection pooling, graceful shutdown + 1s drain defaults, async init, probes UP during migration, OpenJDK 25 support / images on 21 |
+
+**Note on Red Hat docs:** `docs.redhat.com` returns **HTTP 403 to WebFetch**.
+Use the equivalent pages on `keycloak.org` (S1, S3, S6 are all keycloak.org and
+fetch fine). Red Hat's 26.6 release notes exist but are not machine-fetchable
+from here.
 
 Upstream docs omit `JoinGroup` and `HomePage` from the published scenario
 overview; the S4 source read is authoritative over the docs page where they

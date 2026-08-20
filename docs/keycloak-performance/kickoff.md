@@ -49,7 +49,8 @@ Treat anything that mutates prod, triggers a sync against the corporate LDAP/AD,
 | Ability to change the dev Keycloak image / run `kc.sh build` and restart pods | §2.1 — metrics is a build-time option |
 | Keycloak admin credentials for dev (admin console or `kcadm.sh`) | §3.2 admin scenarios, §5 probe, §6 sync trigger |
 | A confidential client with a service account + secret in the dev realm | `JoinGroup`, `CreateUsers`, `UserCrawl` — most admin scenarios need a client secret, not admin creds |
-| Keycloak version (`kcadm.sh get serverinfo` or pod image tag) | §3.1 — the dataset JAR tag must match the Keycloak minor version |
+| Confirmation that **dev** is also Keycloak **26.6.1** (`kcadm.sh get serverinfo` / pod image tag) | §1.5, §3.1 — prod is 26.6.1; a dev/prod version split would be its own finding |
+| Maven + JDK 17 in the work env (repo bundles `./mvnw`) | §3.1 — no published dataset JAR matches 26.6.1, so it must be built from source |
 | Ability to deploy the dataset provider JAR to dev Keycloak | §3.3 seeding + cache-clear endpoints |
 | Ability to run a k8s Job on the dev cluster (JVM/Java 17 image) | §4.1 — in-cluster load generation |
 | Egress from the dev cluster (or a mirror) to fetch the keycloak-benchmark release assets | §3.1 |
