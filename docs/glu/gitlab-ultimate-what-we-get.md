@@ -6,6 +6,10 @@
 > Last updated: 2026-09-09.
 >
 > **Read the tier caveat in §0 before promising any single feature to anyone.**
+>
+> **Companion doc:** operating practice — licence activation, deployment topology,
+> Terraform manageability, backup/DR, upgrade stops — is in
+> `gitlab-ultimate-best-practices.md`.
 
 ---
 
