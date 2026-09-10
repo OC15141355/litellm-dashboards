@@ -13,6 +13,10 @@
 > Organization* (internal tenants) or accounts owned by *external* customers. The
 > permission model differs materially — see §6. The companion audit prompt
 > (`claude-prompt-audit-informal-byo-runners.md`) resolves this from the live AWS org.
+>
+> **Companion doc:** the platform-owned, instance-scoped **shared** fleet — and the
+> provisioning options for it (cattle-ops Terraform module, AWS CodeBuild managed runners,
+> Kubernetes executor) — is evaluated in `gitlab-shared-runner-eval.md`.
 
 ---
 
